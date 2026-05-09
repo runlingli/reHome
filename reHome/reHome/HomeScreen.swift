@@ -36,6 +36,24 @@ struct HomeScreen: View {
                                 .padding(.top, 4)
                         }
 
+                        if query.isEmpty && selectedCategory == "all" {
+                            VStack(alignment: .leading, spacing: 10) {
+                                SectionHeader(eyebrow: "Community wins", title: "Recently re-homed")
+                                    .padding(.horizontal, 16)
+                                ScrollView(.horizontal, showsIndicators: false) {
+                                    HStack(spacing: 12) {
+                                        ForEach(showcaseCases) { item in
+                                            ShowcaseCaseCard(item: item)
+                                        }
+                                    }
+                                    .padding(.horizontal, 16)
+                                    .padding(.vertical, 2)
+                                }
+                                .padding(.horizontal, -16)
+                            }
+                            .padding(.horizontal, 16)
+                        }
+
                         if let featured = filtered.first {
                             VStack(alignment: .leading, spacing: 10) {
                                 SectionHeader(eyebrow: "Quick win", title: "Picked for you")
@@ -180,6 +198,78 @@ struct HomeScreen: View {
     }
 }
 
+// MARK: - Showcase case data + card
+
+private struct ShowcaseCase: Identifiable {
+    let id = UUID()
+    let imageName: String
+    let photoColors: [Color]
+    let photoLabel: String
+    let title: String
+    let savedTag: String
+    let route: String
+}
+
+private let showcaseCases: [ShowcaseCase] = [
+    .init(imageName: "item_i1",  photoColors: [Color(hex: "F4EFE6"), Color(hex: "D9CFB8")], photoLabel: "desk · white",
+          title: "IKEA Malm desk", savedTag: "est. $149", route: "MIT → Harvard"),
+    .init(imageName: "item_i3",  photoColors: [Color(hex: "EDE4D2"), Color(hex: "90785A")], photoLabel: "hybrid bike",
+          title: "Trek FX2 bike", savedTag: "est. $420", route: "BU → Northeastern"),
+    .init(imageName: "item_i5",  photoColors: [Color(hex: "E5E1D7"), Color(hex: "A09583")], photoLabel: "vacuum",
+          title: "Dyson V8 vacuum", savedTag: "est. $280", route: "Harvard → MIT"),
+    .init(imageName: "item_i12", photoColors: [Color(hex: "E5DECC"), Color(hex: "383330")], photoLabel: "office chair",
+          title: "Steelcase Series 1", savedTag: "est. $380", route: "Northeastern → BU"),
+]
+
+private struct ShowcaseCaseCard: View {
+    let item: ShowcaseCase
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                Color.clear
+                    .aspectRatio(4.0 / 3, contentMode: .fit)
+                    .overlay(Image(item.imageName).resizable().scaledToFill())
+                    .clipShape(Rectangle())
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 9, weight: .bold))
+                    Text("PICKED UP")
+                        .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                        .tracking(0.5)
+                }
+                .foregroundStyle(Theme.eduColor)
+                .padding(.horizontal, 7)
+                .padding(.vertical, 4)
+                .background(Capsule().fill(Theme.eduBg))
+                .padding(8)
+            }
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+                    .lineLimit(1)
+                Text(item.savedTag)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textMuted)
+                Text(item.route)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+        }
+        .frame(width: 152)
+        .background(Theme.surface)
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                .strokeBorder(Theme.borderSubtle, lineWidth: 0.75)
+        )
+    }
+}
+
 // MARK: - Featured card (full-width, taller)
 struct FeatureCard: View {
     let listing: Listing
@@ -193,8 +283,7 @@ struct FeatureCard: View {
         Button(action: action) {
             VStack(alignment: .leading, spacing: 0) {
                 ZStack(alignment: .topLeading) {
-                    PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
-                                     aspectRatio: 16.0/10, corner: 0)
+                    ListingPhoto(listing: listing, aspectRatio: 16.0/10, corner: 0)
                     HStack {
                         VerifiedBadge(kind: .edu)
                         Spacer()

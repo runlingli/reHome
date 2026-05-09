@@ -50,6 +50,25 @@ private struct DiagonalStripes: View {
     }
 }
 
+// MARK: - Listing photo (real image with gradient fallback)
+struct ListingPhoto: View {
+    let listing: Listing
+    var aspectRatio: CGFloat? = 1
+    var corner: CGFloat = Radius.md
+
+    var body: some View {
+        if let name = listing.imageName {
+            Color.clear
+                .aspectRatio(aspectRatio, contentMode: .fit)
+                .overlay(Image(name).resizable().scaledToFill())
+                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+        } else {
+            PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
+                             aspectRatio: aspectRatio, corner: corner)
+        }
+    }
+}
+
 // MARK: - Avatar (initials in colored circle)
 struct AvatarView: View {
     let user: SellerProfile
@@ -154,7 +173,7 @@ struct ItemCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
-                PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel, corner: 0)
+                ListingPhoto(listing: listing, aspectRatio: 1, corner: 0)
                 VerifiedBadge(kind: .edu)
                     .padding(8)
             }
@@ -241,6 +260,45 @@ struct ReHomeLogo: View {
                 .font(.system(size: size, weight: .bold))
                 .tracking(-0.6)
                 .foregroundStyle(Theme.text)
+        }
+    }
+}
+
+// MARK: - Auth text field
+struct AuthField: View {
+    let label: String
+    let placeholder: String
+    @Binding var text: String
+    var isSecure = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .tracking(1)
+                .foregroundStyle(Theme.textFaint)
+            Group {
+                if isSecure {
+                    SecureField(placeholder, text: $text)
+                } else {
+                    TextField(placeholder, text: $text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(label.lowercased().contains("email") ? .emailAddress : .default)
+                }
+            }
+            .font(.system(size: 15))
+            .foregroundStyle(Theme.text)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 13)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .fill(Theme.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                            .strokeBorder(Theme.border, lineWidth: 0.75)
+                    )
+            )
         }
     }
 }

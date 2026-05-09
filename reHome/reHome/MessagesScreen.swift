@@ -16,7 +16,7 @@ struct MessagesScreen: View {
             }
             .background(Theme.bg)
             .navigationTitle("Messages")
-            .navigationBarTitleDisplayMode(.large)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(Theme.bg, for: .navigationBar)
             .toolbarBackground(.visible, for: .navigationBar)
         }

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ProfileScreen: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
     private var me: SellerProfile { MockData.users["me_student"]! }
     private var myListings: [Listing] {
         // Show a couple of sample "my posted items"
@@ -33,8 +34,7 @@ struct ProfileScreen: View {
                         SectionHeader(eyebrow: "My listings", title: "Posted by you")
                         ForEach(myListings) { item in
                             HStack(spacing: 12) {
-                                PhotoPlaceholder(colors: item.photoColors, label: item.photoLabel,
-                                                 aspectRatio: 1, corner: 10)
+                                ListingPhoto(listing: item, aspectRatio: 1, corner: 10)
                                     .frame(width: 64)
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(item.title)
@@ -70,9 +70,14 @@ struct ProfileScreen: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button { } label: {
-                        Image(systemName: "gearshape")
-                            .foregroundStyle(Theme.text)
+                    Button { isLoggedIn = false } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 14))
+                            Text("Sign out")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                        .foregroundStyle(Theme.accent)
                     }
                 }
             }

@@ -13,8 +13,7 @@ struct ItemDetailScreen: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
                     // Hero photo
-                    PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
-                                     aspectRatio: 1, corner: 0)
+                    ListingPhoto(listing: listing, aspectRatio: 1, corner: 0)
                         .overlay(alignment: .topLeading) {
                             backButton.padding(14)
                         }

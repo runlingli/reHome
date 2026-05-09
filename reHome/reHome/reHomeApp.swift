@@ -11,7 +11,19 @@ import SwiftUI
 struct reHomeApp: App {
     var body: some Scene {
         WindowGroup {
+            RootView()
+        }
+    }
+}
+
+struct RootView: View {
+    @AppStorage("isLoggedIn") private var isLoggedIn = false
+
+    var body: some View {
+        if isLoggedIn {
             ContentView()
+        } else {
+            LoginScreen(isLoggedIn: $isLoggedIn)
         }
     }
 }

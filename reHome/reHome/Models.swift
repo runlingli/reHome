@@ -34,6 +34,7 @@ struct Listing: Identifiable, Hashable {
     let photoLabel: String
     let savedCount: Int
     let posted: String
+    var imageName: String? = nil
 }
 
 struct SellerProfile: Identifiable, Hashable {
