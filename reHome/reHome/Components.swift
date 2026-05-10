@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 // MARK: - Photo placeholder (gradient + diagonal stripes + label)
 struct PhotoPlaceholder: View {
@@ -173,7 +174,8 @@ struct AvatarPickerSection: View {
                 .foregroundStyle(Theme.textFaint)
 
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
-                ForEach(AvatarView.animalPool, id: \.symbol) { animal in
+                ForEach(0..<AvatarView.animalPool.count, id: \.self) { i in
+                    let animal = AvatarView.animalPool[i]
                     let isSelected = selectedAnimal == animal.symbol && selectedImage == nil
                     Button {
                         selectedAnimal = animal.symbol
