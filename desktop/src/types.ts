@@ -29,6 +29,7 @@ export interface Item {
   saved: number
   posted: string
   imageUrl: string
+  status?: string   // "available" | "completed"
 }
 
 export interface User {
@@ -70,4 +71,5 @@ export interface OverlayState {
   kind: OverlayKind
   itemId?: string
   withUser?: string
+  listingId?: string   // item being discussed when opening messages
 }

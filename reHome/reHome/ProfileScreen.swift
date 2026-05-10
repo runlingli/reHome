@@ -7,6 +7,13 @@ struct ProfileScreen: View {
     @ObservedObject private var fs = FirestoreService.shared
     private var me: SellerProfile { MockData.users["me_student"]! }
 
+    private var myUid: String { Auth.auth().currentUser?.uid ?? "" }
+
+    /// Conversations where handoff is fully confirmed — appear in history.
+    private var completedConversations: [FirestoreConversation] {
+        fs.firestoreConversations.filter { $0.isBothConfirmed }
+    }
+
     private var activeAlertCount: Int {
         let subs = Set(subscribedSchools.split(separator: ",").map(String.init))
         return nearbySchools
@@ -43,6 +50,43 @@ struct ProfileScreen: View {
                     // Quick links
                     quickLinks
                         .padding(.horizontal, 16)
+
+                    // Handoff history
+                    if !completedConversations.isEmpty {
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionHeader(eyebrow: "History", title: "Completed handoffs")
+                            ForEach(completedConversations) { conv in
+                                let isSeller = conv.sellerUid == myUid
+                                let relatedListing = fs.listings.first { $0.id == conv.listingId }
+                                    ?? MockData.listings.first { $0.id == conv.listingId }
+                                if let item = relatedListing {
+                                    HStack(spacing: 12) {
+                                        ListingPhoto(listing: item, aspectRatio: 1, corner: 10)
+                                            .frame(width: 52)
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            Text(item.title)
+                                                .font(.system(size: 14, weight: .semibold))
+                                                .foregroundStyle(Theme.text)
+                                                .lineLimit(1)
+                                            Label(isSeller ? "Handed off" : "Picked up",
+                                                  systemImage: "checkmark.seal.fill")
+                                                .font(.system(size: 11, weight: .semibold))
+                                                .foregroundStyle(Theme.eduColor)
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(12)
+                                    .background(Theme.eduBg.opacity(0.5))
+                                    .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: Radius.lg, style: .continuous)
+                                            .strokeBorder(Theme.eduColor.opacity(0.25), lineWidth: 0.75)
+                                    )
+                                }
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    }
 
                     // My listings
                     VStack(alignment: .leading, spacing: 10) {

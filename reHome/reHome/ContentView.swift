@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ContentView: View {
     @State private var savedSet: Set<String> = ["i3", "i12"]
@@ -36,6 +37,11 @@ struct ContentView: View {
         }
         .fullScreenCover(isPresented: $publishPresented) {
             PublishScreen()
+        }
+        .task {
+            if let uid = Auth.auth().currentUser?.uid {
+                FirestoreService.shared.startListeningConversations(uid: uid)
+            }
         }
     }
 }

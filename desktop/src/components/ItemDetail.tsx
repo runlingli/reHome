@@ -115,7 +115,7 @@ export function ItemDetail() {
               </div>
               <button
                 onClick={() => {
-                  if (currentUser) { closeOverlay(); openMessages(item.seller) }
+                  if (currentUser) { closeOverlay(); openMessages(item.seller, item.id) }
                   else { closeOverlay(); openAuth('login') }
                 }}
                 style={{ width: '100%', marginTop: 18, padding: '14px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}

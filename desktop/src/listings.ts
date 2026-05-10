@@ -56,6 +56,7 @@ function decodeListing(id: string, d: FirestoreListing): Item {
     saved:       d.savedCount ?? 0,
     posted:      relativeAge(d.createdAt ?? null),
     imageUrl:    d.imageUrl || '',
+    status:      (d as any).status || 'available',
   }
 }
 
@@ -94,7 +95,11 @@ function decodeUser(d: FirestoreUser): User {
 export function subscribeToListings(onChange: (items: Item[]) => void): () => void {
   const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(50))
   return onSnapshot(q, snap => {
-    onChange(snap.docs.map(d => decodeListing(d.id, d.data() as FirestoreListing)))
+    onChange(
+      snap.docs
+        .map(d => decodeListing(d.id, d.data() as FirestoreListing))
+        .filter(it => it.status !== 'completed')
+    )
   }, err => {
     console.error('[listings] snapshot error:', err)
   })
@@ -258,6 +263,21 @@ export async function sendMessage(convId: string, text: string): Promise<void> {
     lastMessage:    text,
     lastMessageAt:  serverTimestamp(),
   })
+}
+
+/** Confirm handoff from one side. When both confirm, listing status → "completed". */
+export async function confirmHandoff(convId: string, listingId: string, isSeller: boolean): Promise<void> {
+  const u = auth.currentUser
+  if (!u) throw new Error('Not signed in.')
+  const field = isSeller ? 'sellerConfirmed' : 'receiverConfirmed'
+  const convRef = doc(db, 'conversations', convId)
+  await updateDoc(convRef, { [field]: true })
+
+  const snap = await getDoc(convRef)
+  const d = snap.data() ?? {}
+  if (d['sellerConfirmed'] === true && d['receiverConfirmed'] === true) {
+    await updateDoc(doc(db, 'listings', listingId), { status: 'completed' })
+  }
 }
 
 /**

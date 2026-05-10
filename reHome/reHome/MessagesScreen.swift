@@ -1,18 +1,39 @@
 import SwiftUI
+import FirebaseAuth
 
 struct MessagesScreen: View {
+    @ObservedObject private var fs = FirestoreService.shared
     @State private var query = ""
-    @State private var selectedConversation: Conversation?
+    @State private var selectedConv: FirestoreConversation?
 
-    private var filtered: [Conversation] {
-        guard !query.isEmpty else { return MockData.conversations }
+    private var myUid: String { Auth.auth().currentUser?.uid ?? "" }
+
+    /// Use live Firestore conversations; fall back to mock data for demo.
+    private var allConversations: [FirestoreConversation] {
+        if !fs.firestoreConversations.isEmpty { return fs.firestoreConversations }
+        return MockData.conversations.map { c in
+            FirestoreConversation(
+                id: c.id,
+                participants: [myUid, c.withUser],
+                listingId: c.listingId,
+                sellerUid: c.withUser,
+                lastMessage: c.lastMessage,
+                sellerConfirmed: false,
+                receiverConfirmed: false,
+                lastMessageAt: nil
+            )
+        }
+    }
+
+    private var filtered: [FirestoreConversation] {
+        guard !query.isEmpty else { return allConversations }
         let q = query.lowercased()
-        return MockData.conversations.filter { c in
-            let user = MockData.users[c.withUser]
-            let nameMatch    = user?.name.lowercased().contains(q) ?? false
-            let msgMatch     = c.lastMessage.lowercased().contains(q)
-            let listingTitle = MockData.listings.first { $0.id == c.listingId }?.title ?? ""
-            let itemMatch    = listingTitle.lowercased().contains(q)
+        return allConversations.filter { c in
+            let other = MockData.user(for: c.otherParticipant(excluding: myUid))
+            let nameMatch = other.name.lowercased().contains(q)
+            let msgMatch  = c.lastMessage.lowercased().contains(q)
+            let title     = fs.listings.first { $0.id == c.listingId }?.title ?? ""
+            let itemMatch = title.lowercased().contains(q)
             return nameMatch || msgMatch || itemMatch
         }
     }
@@ -28,7 +49,7 @@ struct MessagesScreen: View {
                         Image(systemName: "bubble.left.and.bubble.right")
                             .font(.system(size: 32))
                             .foregroundStyle(Theme.textFaint)
-                        Text("No conversations match")
+                        Text(query.isEmpty ? "No messages yet" : "No conversations match")
                             .font(.system(size: 14))
                             .foregroundStyle(Theme.textMuted)
                     }
@@ -37,8 +58,9 @@ struct MessagesScreen: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { c in
-                            Button { selectedConversation = c } label: {
-                                ConversationRow(conversation: c, highlight: query)
+                            Button { selectedConv = c } label: {
+                                ConversationRow(conv: c, myUid: myUid,
+                                                listings: fs.listings, highlight: query)
                             }
                             .buttonStyle(.plain)
                             Divider()
@@ -51,8 +73,17 @@ struct MessagesScreen: View {
             }
         }
         .background(Theme.bg.ignoresSafeArea())
-        .sheet(item: $selectedConversation) { c in
-            ChatDetailScreen(conversation: c)
+        .sheet(item: $selectedConv) { c in
+            chatSheet(for: c)
+        }
+    }
+
+    @ViewBuilder
+    private func chatSheet(for conv: FirestoreConversation) -> some View {
+        let listing = fs.listings.first { $0.id == conv.listingId }
+            ?? MockData.listings.first { $0.id == conv.listingId }
+        if let listing {
+            ChatDetailScreen(convId: conv.id, listing: listing, sellerUid: conv.sellerUid)
         }
     }
 
@@ -87,11 +118,15 @@ struct MessagesScreen: View {
 }
 
 private struct ConversationRow: View {
-    let conversation: Conversation
+    let conv: FirestoreConversation
+    let myUid: String
+    let listings: [Listing]
     let highlight: String
 
-    private var user: SellerProfile { MockData.user(for: conversation.withUser) }
-    private var listing: Listing? { MockData.listings.first { $0.id == conversation.listingId } }
+    private var otherUid: String { conv.otherParticipant(excluding: myUid) }
+    private var user: SellerProfile { MockData.user(for: otherUid) }
+    private var listing: Listing? { listings.first { $0.id == conv.listingId }
+        ?? MockData.listings.first { $0.id == conv.listingId } }
 
     var body: some View {
         HStack(alignment: .top, spacing: 14) {
@@ -107,9 +142,16 @@ private struct ConversationRow: View {
                             .foregroundStyle(Theme.eduColor)
                     }
                     Spacer()
-                    Text(conversation.time)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.textFaint)
+                    if conv.isBothConfirmed {
+                        Image(systemName: "checkmark.seal.fill")
+                            .font(.system(size: 11))
+                            .foregroundStyle(Theme.eduColor)
+                    }
+                    if let d = conv.lastMessageAt {
+                        Text(relTime(d))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint)
+                    }
                 }
                 if let listing {
                     Text("Re: \(listing.title)")
@@ -117,24 +159,22 @@ private struct ConversationRow: View {
                         .foregroundStyle(Theme.textMuted)
                         .lineLimit(1)
                 }
-                HStack(alignment: .top) {
-                    Text(conversation.lastMessage)
+                if !conv.lastMessage.isEmpty {
+                    Text(conv.lastMessage)
                         .font(.system(size: 13))
-                        .foregroundStyle(conversation.unread > 0 ? Theme.text : Theme.textMuted)
+                        .foregroundStyle(Theme.textMuted)
                         .lineLimit(2)
-                    Spacer()
-                    if conversation.unread > 0 {
-                        Text("\(conversation.unread)")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.white)
-                            .frame(minWidth: 18, minHeight: 18)
-                            .padding(.horizontal, 4)
-                            .background(Capsule().fill(Theme.accent))
-                    }
                 }
             }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 14)
+    }
+
+    private func relTime(_ d: Date) -> String {
+        let sec = Date().timeIntervalSince(d)
+        if sec < 3600   { return "\(Int(sec / 60))m" }
+        if sec < 86_400 { return "\(Int(sec / 3600))h" }
+        return "\(Int(sec / 86_400))d"
     }
 }

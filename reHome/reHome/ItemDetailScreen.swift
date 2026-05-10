@@ -1,12 +1,19 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ItemDetailScreen: View {
     let listing: Listing
     @Binding var savedSet: Set<String>
     @Environment(\.dismiss) private var dismiss
 
+    @State private var showChat = false
+    @State private var chatConvId: String?
+    @State private var isOpeningChat = false
+    @State private var chatError: String?
+
     private var seller: SellerProfile { MockData.user(for: listing.sellerHandle) }
     private var saved: Bool { savedSet.contains(listing.id) }
+    private var myUid: String { Auth.auth().currentUser?.uid ?? "" }
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -131,10 +138,31 @@ struct ItemDetailScreen: View {
                                 .strokeBorder(Theme.border, lineWidth: 1)
                         )
                 }
-                Button {} label: {
+                Button {
+                    guard !isOpeningChat else { return }
+                    isOpeningChat = true
+                    Task {
+                        do {
+                            let convId = try await FirestoreService.shared.getOrCreateConversation(
+                                myUid: myUid,
+                                sellerUid: listing.sellerHandle,
+                                listingId: listing.id
+                            )
+                            chatConvId = convId
+                            showChat = true
+                        } catch {
+                            chatError = (error as NSError).localizedDescription
+                        }
+                        isOpeningChat = false
+                    }
+                } label: {
                     HStack {
-                        Image(systemName: "paperplane.fill")
-                            .font(.system(size: 14, weight: .semibold))
+                        if isOpeningChat {
+                            ProgressView().tint(Theme.bg)
+                        } else {
+                            Image(systemName: "paperplane.fill")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
                         Text("Message \(seller.name.split(separator: " ").first.map(String.init) ?? seller.name)")
                             .font(.system(size: 15, weight: .semibold))
                     }
@@ -143,8 +171,13 @@ struct ItemDetailScreen: View {
                     .frame(height: 54)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(Theme.text)
+                            .fill(isOpeningChat ? Theme.textFaint : Theme.text)
                     )
+                }
+                .sheet(isPresented: $showChat) {
+                    if let convId = chatConvId {
+                        ChatDetailScreen(convId: convId, listing: listing, sellerUid: listing.sellerHandle)
+                    }
                 }
             }
             .padding(.horizontal, 16)

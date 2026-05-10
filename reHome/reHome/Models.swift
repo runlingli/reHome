@@ -52,16 +52,52 @@ struct Listing: Identifiable, Hashable {
     let age: String
     let pickup: String
     let desc: String
-    let sellerHandle: String    // SellerProfile.handle key
+    let sellerHandle: String    // maps to sellerUid in Firestore
     let location: String
     let photoColors: [Color]
     let photoLabel: String
     let savedCount: Int
     let posted: String
+    var status: String = "available"   // "available" | "completed"
     var imageName: String? = nil
-    var photoAspectRatio: CGFloat = 1.0   // width ÷ height; < 1 = portrait
+    var photoAspectRatio: CGFloat = 1.0
     var handoffKind: HandoffKind = .meetIndoor
     var doorsideWindow: String = ""
+}
+
+// MARK: - Firestore-backed conversation/message models
+
+struct FirestoreConversation: Identifiable, Hashable {
+    let id: String
+    let participants: [String]
+    let listingId: String
+    let sellerUid: String
+    let lastMessage: String
+    let sellerConfirmed: Bool
+    let receiverConfirmed: Bool
+    let lastMessageAt: Date?
+
+    var isBothConfirmed: Bool { sellerConfirmed && receiverConfirmed }
+
+    func otherParticipant(excluding myUid: String) -> String {
+        participants.first { $0 != myUid } ?? ""
+    }
+}
+
+struct FirestoreMessage: Identifiable, Hashable {
+    let id: String
+    let from: String    // uid
+    let text: String
+    let createdAt: Date?
+
+    func isMe(uid: String) -> Bool { from == uid }
+
+    var timeLabel: String {
+        guard let d = createdAt else { return "now" }
+        let f = DateFormatter()
+        f.timeStyle = .short
+        return f.string(from: d)
+    }
 }
 
 struct SellerProfile: Identifiable, Hashable {

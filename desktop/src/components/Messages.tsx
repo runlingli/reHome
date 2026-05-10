@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { CONVERSATIONS } from '../data'
-import { subscribeToMessages, sendMessage, getOrCreateConversation } from '../listings'
+import { subscribeToMessages, sendMessage, getOrCreateConversation, confirmHandoff } from '../listings'
 import { auth } from '../firebase'
 import { Overlay, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
 import type { Conversation, Message, User, Item } from '../types'
@@ -19,36 +19,48 @@ const PLACEHOLDER_ITEM: Item = {
 }
 
 export function Messages() {
-  const { overlay, closeOverlay, openItem, conversations, currentUser } = useStore()
+  const { overlay, closeOverlay, openItem, conversations, currentUser, listings } = useStore()
   if (overlay.kind !== 'messages') return null
 
-  // Prefer live Firestore conversations; fall back to demo mock data
-  const allConvs = conversations.length > 0 ? conversations : CONVERSATIONS
+  const myUid = currentUser?.id ?? null
+  const isLive = conversations.length > 0
+  const allConvs = isLive ? conversations : CONVERSATIONS
 
+  // If opened from an item, find or surface that conversation
   let initialConv: Conversation
   if (overlay.withUser) {
-    initialConv = allConvs.find(c => c.with === overlay.withUser) ?? allConvs[0]
+    // Try to find existing conv with that user about that specific listing
+    const found = allConvs.find(c =>
+      c.with === overlay.withUser &&
+      (!overlay.listingId || c.item === overlay.listingId)
+    ) ?? allConvs.find(c => c.with === overlay.withUser) ?? allConvs[0]
+    initialConv = found
   } else {
     initialConv = allConvs[0]
   }
+
+  // If opened from an item + no existing conversation, we'll create one in ChatPane
+  const pendingListingId = overlay.listingId ?? null
 
   return (
     <MessagesInner
       initialConv={initialConv}
       allConvs={allConvs}
-      isLive={conversations.length > 0}
-      myUid={currentUser?.id ?? null}
+      isLive={isLive}
+      myUid={myUid}
+      pendingListingId={pendingListingId}
       onClose={closeOverlay}
       onOpenItem={openItem}
     />
   )
 }
 
-function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenItem }: {
+function MessagesInner({ initialConv, allConvs, isLive, myUid, pendingListingId, onClose, onOpenItem }: {
   initialConv: Conversation
   allConvs: Conversation[]
   isLive: boolean
   myUid: string | null
+  pendingListingId: string | null
   onClose: () => void
   onOpenItem: (id: string) => void
 }) {
@@ -56,7 +68,6 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenIt
   const listings = useStore(s => s.listings)
   const [active, setActive] = useState(initialConv)
 
-  // When the user navigates to a new conv, sync active
   useEffect(() => { setActive(initialConv) }, [initialConv.id])
 
   return (
@@ -88,7 +99,7 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenIt
                       <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
                       <span style={{ fontSize: 10, color: T.textFaint, fontFamily: '"JetBrains Mono", monospace', flexShrink: 0 }}>{c.time}</span>
                     </div>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>re: {it.title}</div>
+                    {it.title && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>re: {it.title}</div>}
                     <div style={{ fontSize: 12, color: c.unread ? T.text : T.textMuted, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last}</div>
                   </div>
                   {c.unread > 0 && (
@@ -104,6 +115,7 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenIt
           conv={active}
           isLive={isLive}
           myUid={myUid}
+          pendingListingId={pendingListingId}
           onOpenItem={onOpenItem}
         />
       </div>
@@ -111,39 +123,61 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenIt
   )
 }
 
-function ChatPane({ conv, isLive, myUid, onOpenItem }: {
+function ChatPane({ conv, isLive, myUid, pendingListingId, onOpenItem }: {
   conv: Conversation
   isLive: boolean
   myUid: string | null
+  pendingListingId: string | null
   onOpenItem: (id: string) => void
 }) {
   const usersByUid = useStore(s => s.usersByUid)
   const listings = useStore(s => s.listings)
   const u = usersByUid[conv.with] ?? PLACEHOLDER_USER
-  const it = listings.find(i => i.id === conv.item) ?? PLACEHOLDER_ITEM
+  const it = listings.find(i => i.id === (conv.item || pendingListingId || '')) ?? PLACEHOLDER_ITEM
 
-  // Live messages state (Firestore) or mock messages from conv
   const [msgs, setMsgs] = useState<Message[]>(conv.messages)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
+  // resolvedConvId may differ from conv.id when a new conversation is created on first send
+  const [resolvedConvId, setResolvedConvId] = useState(conv.id)
+  const [sellerConfirmed, setSellerConfirmed] = useState(false)
+  const [receiverConfirmed, setReceiverConfirmed] = useState(false)
+  const [confirming, setConfirming] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
+  const isSeller = myUid !== null && it.seller === myUid
+  const myConfirmed = isSeller ? sellerConfirmed : receiverConfirmed
+  const bothConfirmed = sellerConfirmed && receiverConfirmed
+
   useEffect(() => {
+    setResolvedConvId(conv.id)
+    setSellerConfirmed(false)
+    setReceiverConfirmed(false)
     if (!isLive || !myUid) {
       setMsgs(conv.messages)
       return
     }
-    // Subscribe to real messages for this conversation
-    const unsub = subscribeToMessages(conv.id, myUid, (live) => {
-      setMsgs(live)
-    })
+    const unsub = subscribeToMessages(conv.id, myUid, (live) => setMsgs(live))
     return unsub
   }, [conv.id, isLive, myUid])
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [msgs])
+
+  const getConvId = async (): Promise<string> => {
+    if (resolvedConvId && resolvedConvId !== 'c1' && resolvedConvId !== 'c2'
+        && resolvedConvId !== 'c3' && resolvedConvId !== 'c4') {
+      return resolvedConvId
+    }
+    // New conversation: create it
+    const fbUser = auth.currentUser
+    if (!fbUser || !myUid) throw new Error('Not signed in.')
+    const listingId = conv.item || pendingListingId || ''
+    const id = await getOrCreateConversation(myUid, conv.with, listingId)
+    setResolvedConvId(id)
+    return id
+  }
 
   const send = async () => {
     const text = draft.trim()
@@ -152,51 +186,64 @@ function ChatPane({ conv, isLive, myUid, onOpenItem }: {
     if (isLive && myUid) {
       setSending(true)
       try {
-        // Ensure conversation doc exists (handles "Request pickup" path)
-        const fbUser = auth.currentUser
-        if (fbUser && conv.with) {
-          const convId = conv.id.includes('__')
-            ? conv.id
-            : await getOrCreateConversation(myUid, conv.with, conv.item)
-          await sendMessage(convId, text)
-        }
+        const convId = await getConvId()
+        await sendMessage(convId, text)
       } catch (e) {
         console.error('[send]', e)
-        // Optimistic fallback
         setMsgs(m => [...m, { from: 'me', text, cn: text, time: 'now' }])
       } finally {
         setSending(false)
       }
     } else {
-      // Demo mode: append locally
       setMsgs(m => [...m, { from: 'me', text, cn: text, time: 'now' }])
+    }
+  }
+
+  const confirm = async () => {
+    if (!isLive || !myUid || !it.id) return
+    setConfirming(true)
+    try {
+      const convId = await getConvId()
+      await confirmHandoff(convId, it.id, isSeller)
+      if (isSeller) setSellerConfirmed(true)
+      else setReceiverConfirmed(true)
+    } catch (e) {
+      console.error('[confirm]', e)
+    } finally {
+      setConfirming(false)
     }
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 700 }}>
+      {/* Header */}
       <div style={{ padding: '20px 24px', borderBottom: '0.5px solid ' + T.border, display: 'flex', alignItems: 'center', gap: 12 }}>
         <Avatar user={u} size={40} />
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontSize: 15, fontWeight: 700 }}>{u.name}</span>
-            <VerifiedBadge kind="edu" />
+            {u.eduVerified && <VerifiedBadge kind="edu" />}
           </div>
           <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{u.school}</div>
         </div>
       </div>
 
       {/* Item context card */}
-      <button onClick={() => onOpenItem(it.id)} style={{ margin: '12px 24px 0', padding: '10px 14px', background: T.surface, borderRadius: 12, border: '0.75px solid ' + T.border, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}>
-        <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
-          <Photo colors={it.photoColors} label={it.photoLabel} radius={8} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontFamily: '"JetBrains Mono", monospace', color: T.textFaint, letterSpacing: 0.4, textTransform: 'uppercase' }}>Discussing</div>
-          <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
-        </div>
-        <FreeTag est={it.est} />
-      </button>
+      {it.id && (
+        <button onClick={() => onOpenItem(it.id)} style={{ margin: '12px 24px 0', padding: '10px 14px', background: T.surface, borderRadius: 12, border: '0.75px solid ' + T.border, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left' }}>
+          <div style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 8, overflow: 'hidden' }}>
+            <Photo colors={it.photoColors} label={it.photoLabel} radius={8} />
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontFamily: '"JetBrains Mono", monospace', color: T.textFaint, letterSpacing: 0.4, textTransform: 'uppercase' }}>Discussing</div>
+            <div style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.title}</div>
+          </div>
+          <FreeTag est={it.est} />
+          {bothConfirmed && (
+            <span style={{ fontSize: 11, fontWeight: 700, color: '#1F8A5B', background: '#E0F1E7', padding: '3px 8px', borderRadius: 999 }}>Complete</span>
+          )}
+        </button>
+      )}
 
       {/* Messages */}
       <div style={{ flex: 1, overflow: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -207,25 +254,59 @@ function ChatPane({ conv, isLive, myUid, onOpenItem }: {
         <div ref={bottomRef} />
       </div>
 
-      {/* Composer */}
-      <div style={{ padding: '14px 20px 20px', borderTop: '0.5px solid ' + T.border, display: 'flex', gap: 10 }}>
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: T.surface, borderRadius: 999, border: '0.75px solid ' + T.border, padding: '10px 16px' }}>
-          <input
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
-            placeholder="Message"
-            style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14 }}
-          />
+      {/* Confirm banner */}
+      {isLive && it.id && !bothConfirmed && (
+        <div style={{ borderTop: '0.5px solid ' + T.border }}>
+          {!myConfirmed ? (
+            <button
+              onClick={confirm}
+              disabled={confirming}
+              style={{ width: '100%', padding: '12px', background: '#E0F1E7', border: 'none', cursor: confirming ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: confirming ? 0.6 : 1 }}
+            >
+              <Icon name="check" size={14} color="#1F8A5B" stroke={2.5} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#1F8A5B' }}>
+                {isSeller ? 'Confirm handed off' : 'Confirm picked up'}
+              </span>
+            </button>
+          ) : (
+            <div style={{ padding: '10px 24px', background: T.surfaceAlt, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 999, background: '#E1A82A' }} />
+              <span style={{ fontSize: 12, color: T.textMuted }}>
+                {isSeller ? 'Waiting for receiver to confirm pickup…' : 'Waiting for seller to confirm handoff…'}
+              </span>
+            </div>
+          )}
         </div>
-        <button
-          onClick={send}
-          disabled={sending || !draft.trim()}
-          style={{ padding: '0 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 999, cursor: sending ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: sending ? 0.6 : 1 }}
-        >
-          Send
-        </button>
-      </div>
+      )}
+
+      {bothConfirmed && (
+        <div style={{ padding: '14px 24px', background: '#E0F1E7', display: 'flex', alignItems: 'center', gap: 10, borderTop: '0.5px solid #1F8A5B33' }}>
+          <Icon name="check" size={16} color="#1F8A5B" stroke={2.5} />
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#1F8A5B' }}>Handoff complete! This item has been passed on.</span>
+        </div>
+      )}
+
+      {/* Composer */}
+      {!bothConfirmed && (
+        <div style={{ padding: '14px 20px 20px', borderTop: '0.5px solid ' + T.border, display: 'flex', gap: 10 }}>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: T.surface, borderRadius: 999, border: '0.75px solid ' + T.border, padding: '10px 16px' }}>
+            <input
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
+              placeholder="Message"
+              style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14 }}
+            />
+          </div>
+          <button
+            onClick={send}
+            disabled={sending || !draft.trim()}
+            style={{ padding: '0 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 999, cursor: sending ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: sending ? 0.6 : 1 }}
+          >
+            Send
+          </button>
+        </div>
+      )}
     </div>
   )
 }

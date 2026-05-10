@@ -54,7 +54,7 @@ interface AppState {
   toggleSave: (id: string) => void
 
   openItem: (id: string) => void
-  openMessages: (withUser?: string) => void
+  openMessages: (withUser?: string, listingId?: string) => void
   openProfile: () => void
   openProfileTab: (tab: ProfileTab) => void
   openPost: () => void
@@ -106,7 +106,7 @@ export const useStore = create<AppState>((set, get) => ({
     }),
 
   openItem: (itemId) => set({ overlay: { kind: 'item', itemId } }),
-  openMessages: (withUser) => set({ overlay: { kind: 'messages', withUser } }),
+  openMessages: (withUser, listingId) => set({ overlay: { kind: 'messages', withUser, listingId } }),
   openProfile: () => set({ profileInitialTab: 'listings', overlay: { kind: 'profile' } }),
   openProfileTab: (tab) => set({ profileInitialTab: tab, overlay: { kind: 'profile' } }),
   openPost: () => set({ overlay: { kind: 'post' } }),

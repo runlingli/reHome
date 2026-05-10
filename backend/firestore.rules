@@ -83,9 +83,15 @@ service cloud.firestore {
                     && request.resource.data.sellerUid == request.auth.uid
                     && request.resource.data.keys().hasAll(['title','category','condition','sellerUid','createdAt']);
 
-      allow update: if isEduVerified()
+      allow update: if (isEduVerified()
                     && resource.data.sellerUid == request.auth.uid
-                    && request.resource.data.sellerUid == request.auth.uid;
+                    && request.resource.data.sellerUid == request.auth.uid)
+                    // Handoff completion: any signed-in user may flip status → "completed"
+                    // (only that field changes; transition must be available → completed).
+                    || (signedIn()
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+                        && request.resource.data.status == 'completed'
+                        && resource.data.status == 'available');
 
       allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
     }

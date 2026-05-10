@@ -4,26 +4,23 @@ import FirebaseFirestore
 import SwiftUI
 
 /// Singleton Firestore facade.
-///
-/// Note on concurrency: the class itself is **not** `@MainActor` because that
-/// would force `static let shared = FirestoreService()` to be initialised on
-/// the main actor — but `static let` runs lazily on whichever thread first
-/// touches it, so Swift 6 rejects that pattern. Instead all `@Published`
-/// mutations are wrapped in `Task { @MainActor in … }`, satisfying SwiftUI's
-/// expectation that observed state changes on the main actor.
 final class FirestoreService: ObservableObject {
     static let shared = FirestoreService()
 
     private let db = Firestore.firestore()
     private var listingsListener: ListenerRegistration?
+    private var conversationsListener: ListenerRegistration?
+    private var messagesListener: ListenerRegistration?
 
     @Published private(set) var listings: [Listing] = []
+    @Published private(set) var firestoreConversations: [FirestoreConversation] = []
+    @Published private(set) var activeMessages: [FirestoreMessage] = []
     @Published private(set) var isLoading: Bool = false
     @Published var lastError: String?
 
     private init() {}
 
-    // MARK: - Listings: live read (sorted by newest)
+    // MARK: - Listings: live read (sorted by newest, excludes completed)
 
     func startListeningListings() {
         guard listingsListener == nil else { return }
@@ -36,11 +33,11 @@ final class FirestoreService: ObservableObject {
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.isLoading = false
-                    if let err {
-                        self.lastError = err.localizedDescription
-                        return
-                    }
-                    self.listings = snap?.documents.compactMap(Listing.init(snapshot:)) ?? []
+                    if let err { self.lastError = err.localizedDescription; return }
+                    self.listings = snap?.documents
+                        .compactMap(Listing.init(snapshot:))
+                        .filter { $0.status != "completed" }
+                        ?? []
                 }
             }
     }
@@ -50,7 +47,130 @@ final class FirestoreService: ObservableObject {
         listingsListener = nil
     }
 
-    // MARK: - Create a new listing (eduVerified gate enforced by rules)
+    // MARK: - Conversations: live read for current user
+
+    func startListeningConversations(uid: String) {
+        guard conversationsListener == nil else { return }
+        conversationsListener = db.collection("conversations")
+            .whereField("participants", arrayContains: uid)
+            .order(by: "lastMessageAt", descending: true)
+            .limit(to: 30)
+            .addSnapshotListener { [weak self] snap, err in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let err { self.lastError = err.localizedDescription; return }
+                    self.firestoreConversations = snap?.documents.compactMap { doc in
+                        let d = doc.data()
+                        let ts = d["lastMessageAt"] as? Timestamp
+                        return FirestoreConversation(
+                            id: doc.documentID,
+                            participants: d["participants"] as? [String] ?? [],
+                            listingId: d["listingId"] as? String ?? "",
+                            sellerUid: d["sellerUid"] as? String ?? "",
+                            lastMessage: d["lastMessage"] as? String ?? "",
+                            sellerConfirmed: d["sellerConfirmed"] as? Bool ?? false,
+                            receiverConfirmed: d["receiverConfirmed"] as? Bool ?? false,
+                            lastMessageAt: ts?.dateValue()
+                        )
+                    } ?? []
+                }
+            }
+    }
+
+    func stopListeningConversations() {
+        conversationsListener?.remove()
+        conversationsListener = nil
+        Task { @MainActor in self.firestoreConversations = [] }
+    }
+
+    // MARK: - Messages: live read for active conversation
+
+    func startListeningMessages(convId: String) {
+        messagesListener?.remove()
+        messagesListener = db.collection("conversations").document(convId)
+            .collection("messages")
+            .order(by: "createdAt", ascending: true)
+            .addSnapshotListener { [weak self] snap, err in
+                Task { @MainActor [weak self] in
+                    guard let self else { return }
+                    if let err { self.lastError = err.localizedDescription; return }
+                    self.activeMessages = snap?.documents.compactMap { doc in
+                        let d = doc.data()
+                        let ts = d["createdAt"] as? Timestamp
+                        return FirestoreMessage(
+                            id: doc.documentID,
+                            from: d["from"] as? String ?? "",
+                            text: d["text"] as? String ?? "",
+                            createdAt: ts?.dateValue()
+                        )
+                    } ?? []
+                }
+            }
+    }
+
+    func stopListeningMessages() {
+        messagesListener?.remove()
+        messagesListener = nil
+        Task { @MainActor in self.activeMessages = [] }
+    }
+
+    // MARK: - Create or fetch conversation
+
+    /// Conversation ID = sorted(uid1, uid2).joined("__") + "__" + listingId
+    func getOrCreateConversation(myUid: String, sellerUid: String, listingId: String) async throws -> String {
+        let convId = ([myUid, sellerUid].sorted() + [listingId]).joined(separator: "__")
+        let ref = db.collection("conversations").document(convId)
+        let snap = try await ref.getDocument()
+        if !snap.exists {
+            try await ref.setData([
+                "participants":      [myUid, sellerUid],
+                "listingId":         listingId,
+                "sellerUid":         sellerUid,
+                "lastMessage":       "",
+                "lastMessageAt":     FieldValue.serverTimestamp(),
+                "unread":            [myUid: 0, sellerUid: 0],
+                "sellerConfirmed":   false,
+                "receiverConfirmed": false,
+                "createdAt":         FieldValue.serverTimestamp(),
+            ])
+        }
+        return convId
+    }
+
+    // MARK: - Send a message
+
+    func sendMessage(convId: String, text: String, senderUid: String) async throws {
+        let msgRef = db.collection("conversations").document(convId)
+            .collection("messages").document()
+        try await msgRef.setData([
+            "from":      senderUid,
+            "text":      text,
+            "createdAt": FieldValue.serverTimestamp(),
+        ])
+        try await db.collection("conversations").document(convId).updateData([
+            "lastMessage":    text,
+            "lastMessageAt":  FieldValue.serverTimestamp(),
+        ])
+    }
+
+    // MARK: - Confirm handoff
+
+    /// One side confirms. When both confirm, listing status → "completed".
+    func confirmHandoff(convId: String, listingId: String, myUid: String, isSeller: Bool) async throws {
+        let field = isSeller ? "sellerConfirmed" : "receiverConfirmed"
+        let convRef = db.collection("conversations").document(convId)
+        try await convRef.updateData([field: true])
+
+        let snap = try await convRef.getDocument()
+        let d = snap.data() ?? [:]
+        let sellerOK   = d["sellerConfirmed"]   as? Bool == true
+        let receiverOK = d["receiverConfirmed"] as? Bool == true
+        if sellerOK && receiverOK {
+            try await db.collection("listings").document(listingId).updateData(["status": "completed"])
+        }
+    }
+
+    // MARK: - Create a new listing
 
     func createListing(
         title: String,
@@ -77,6 +197,7 @@ final class FirestoreService: ObservableObject {
             "location":       location,
             "sellerUid":      sellerUid,
             "savedCount":     0,
+            "status":         "available",
             "handoffKind":    handoffKind.rawValue,
             "doorsideWindow": doorsideWindow,
             "photoLabel":     title.split(separator: " ").first.map(String.init)?.lowercased() ?? "item",
@@ -112,6 +233,7 @@ extension Listing {
         self.photoLabel     = data["photoLabel"]   as? String ?? ""
         self.savedCount     = data["savedCount"]   as? Int    ?? 0
         self.posted         = posted
+        self.status         = data["status"]       as? String ?? "available"
         self.handoffKind    = HandoffKind(rawValue: handoffStr) ?? .meetIndoor
         self.doorsideWindow = data["doorsideWindow"] as? String ?? ""
     }
