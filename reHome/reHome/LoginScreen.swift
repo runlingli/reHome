@@ -117,7 +117,10 @@ struct GoogleSignInRow: View {
             Task { await go() }
         } label: {
             HStack(spacing: 10) {
-                GoogleGLogo(size: 22)
+                Image("google-logo")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 20, height: 20)
                 Text("Continue with Google")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.text)
@@ -150,33 +153,3 @@ struct GoogleSignInRow: View {
     }
 }
 
-// MARK: - Google G four-colour arc logo
-struct GoogleGLogo: View {
-    var size: CGFloat = 20
-
-    private static let segments: [(start: Double, end: Double, hex: String)] = [
-        (-90,  25, "EA4335"),   // red    – top
-        ( 30, 118, "FBBC05"),   // yellow – right
-        (123, 211, "34A853"),   // green  – bottom
-        (216, 270, "4285F4"),   // blue   – left
-    ]
-
-    var body: some View {
-        Canvas { ctx, sz in
-            let s  = min(sz.width, sz.height)
-            let lw = s * 0.195
-            let r  = (s - lw) / 2
-            let c  = CGPoint(x: sz.width / 2, y: sz.height / 2)
-            for seg in Self.segments {
-                var p = Path()
-                p.addArc(center: c, radius: r,
-                         startAngle: .degrees(seg.start),
-                         endAngle: .degrees(seg.end),
-                         clockwise: false)
-                ctx.stroke(p, with: .color(Color(hex: seg.hex)),
-                           style: StrokeStyle(lineWidth: lw, lineCap: .round))
-            }
-        }
-        .frame(width: size, height: size)
-    }
-}
