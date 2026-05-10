@@ -6,7 +6,27 @@ struct ProfileScreen: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
     @ObservedObject private var fs = FirestoreService.shared
-    private var me: SellerProfile { MockData.users["me_student"]! }
+    @ObservedObject private var profileStore = ProfileStore.shared
+    @State private var showEditSheet = false
+
+    private var me: SellerProfile {
+        let base = MockData.users["me_student"]!
+        return SellerProfile(
+            id: base.id,
+            name: profileStore.displayName,
+            handle: profileStore.displayHandle,
+            school: profileStore.displaySchool,
+            eduVerified: base.eduVerified,
+            localVerified: base.localVerified,
+            rating: base.rating,
+            deals: base.deals,
+            bio: profileStore.displayBio,
+            avatarColor: base.avatarColor,
+            avatarInitials: base.avatarInitials,
+            avatarAnimal: profileStore.animal,
+            avatarPhotoURL: nil
+        )
+    }
 
     private var myUid: String { Auth.auth().currentUser?.uid ?? "" }
 
@@ -133,7 +153,20 @@ struct ProfileScreen: View {
     // MARK: - Header
     private var profileHeader: some View {
         HStack(alignment: .top, spacing: 14) {
-            AvatarView(user: me, size: 64)
+            Button { showEditSheet = true } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    AvatarView(user: me, size: 64, overrideImage: profileStore.avatarImage)
+                    ZStack {
+                        Circle().fill(Theme.bg).frame(width: 24, height: 24)
+                        Image(systemName: "pencil.circle.fill")
+                            .font(.system(size: 22))
+                            .foregroundStyle(Theme.text)
+                    }
+                    .offset(x: 4, y: 4)
+                }
+            }
+            .buttonStyle(.plain)
+
             VStack(alignment: .leading, spacing: 6) {
                 Text(me.name)
                     .font(.system(size: 22, weight: .bold))
@@ -149,15 +182,23 @@ struct ProfileScreen: View {
                     .padding(.top, 2)
             }
             Spacer(minLength: 0)
-            Button {
-                try? Auth.auth().signOut()
-                isLoggedIn = false
-            } label: {
-                Image(systemName: "rectangle.portrait.and.arrow.right")
-                    .font(.system(size: 16))
-                    .foregroundStyle(Theme.textFaint)
+            VStack(spacing: 10) {
+                Button {
+                    try? Auth.auth().signOut()
+                    isLoggedIn = false
+                } label: {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.textFaint)
+                }
+                Button { showEditSheet = true } label: {
+                    Image(systemName: "square.and.pencil")
+                        .font(.system(size: 16))
+                        .foregroundStyle(Theme.textFaint)
+                }
             }
         }
+        .sheet(isPresented: $showEditSheet) { EditProfileSheet() }
     }
 
     private var statsRow: some View {

@@ -74,6 +74,7 @@ struct ListingPhoto: View {
 struct AvatarView: View {
     let user: SellerProfile
     var size: CGFloat = 36
+    var overrideImage: UIImage? = nil
 
     static let animalPool: [(symbol: String, bg: String, fg: String)] = [
         ("hare.fill",     "E8E0D4", "8A7560"),
@@ -94,7 +95,9 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack {
-            if let urlStr = user.avatarPhotoURL, let url = URL(string: urlStr) {
+            if let img = overrideImage {
+                Image(uiImage: img).resizable().scaledToFill()
+            } else if let urlStr = user.avatarPhotoURL, let url = URL(string: urlStr) {
                 AsyncImage(url: url) { phase in
                     if case .success(let img) = phase {
                         img.resizable().scaledToFill()
