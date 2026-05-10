@@ -27,6 +27,10 @@ export default function App() {
     document.body.style.overflow = overlay.kind ? 'hidden' : ''
   }, [overlay.kind])
 
+  useEffect(() => {
+    navigator.geolocation?.getCurrentPosition(() => {}, () => {})
+  }, [])
+
   return (
     <>
       <Header />

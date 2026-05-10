@@ -40,11 +40,8 @@ export function HeroBand() {
 
         {/* Stat tiles */}
         <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 16 }}>
-          <StatTile big="428" label="Items posted in the last 7 days" sub="across Boston metro" tint="#EFE9DC" />
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <StatTile big="1.4k" label="Verified students" tint="#E0F1E7" badgeKind="edu" />
-            <StatTile big="980+" label="Local pickups" tint="#E0EAFA" badgeKind="local" />
-          </div>
+          <StatTile big="428" label="Items posted in the last 7 days" sub="across Davis area" tint="#EFE9DC" />
+          <StatTile big="980+" label="Local pickups" tint="#E0EAFA" badgeKind="local" />
         </div>
       </div>
     </section>
