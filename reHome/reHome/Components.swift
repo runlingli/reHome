@@ -162,6 +162,15 @@ struct CategoryChip: View {
     }
 }
 
+// MARK: - Press style (replaces dark system highlight with subtle scale)
+struct CardPressStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.975 : 1)
+            .animation(.easeOut(duration: 0.1), value: configuration.isPressed)
+    }
+}
+
 // MARK: - Item card (grid)
 struct ItemCard: View {
     let listing: Listing

@@ -19,6 +19,30 @@ struct ItemCategory: Identifiable, Hashable {
     let glyph: String
 }
 
+enum HandoffKind: String, CaseIterable {
+    case meetIndoor   = "meet_indoor"
+    case doorsideDrop = "doorside_drop"
+
+    var label: String {
+        switch self {
+        case .meetIndoor:   return "Meet indoors"
+        case .doorsideDrop: return "Doorstep drop"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .meetIndoor:   return "Receiver comes to your unit"
+        case .doorsideDrop: return "Item left at door, no contact needed"
+        }
+    }
+    var icon: String {
+        switch self {
+        case .meetIndoor:   return "person.2"
+        case .doorsideDrop: return "shippingbox"
+        }
+    }
+}
+
 struct Listing: Identifiable, Hashable {
     let id: String
     let title: String
@@ -35,6 +59,8 @@ struct Listing: Identifiable, Hashable {
     let savedCount: Int
     let posted: String
     var imageName: String? = nil
+    var handoffKind: HandoffKind = .meetIndoor
+    var doorsideWindow: String = ""
 }
 
 struct SellerProfile: Identifiable, Hashable {

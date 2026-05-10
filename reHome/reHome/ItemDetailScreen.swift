@@ -69,6 +69,31 @@ struct ItemDetailScreen: View {
                                 )
                         )
 
+                        // Handoff method pill
+                        HStack(spacing: 8) {
+                            Image(systemName: listing.handoffKind.icon)
+                                .font(.system(size: 11))
+                            Text(listing.handoffKind.label)
+                                .font(.system(size: 12, weight: .medium))
+                            if listing.handoffKind == .doorsideDrop && !listing.doorsideWindow.isEmpty {
+                                Text("·")
+                                    .foregroundStyle(Theme.textFaint)
+                                Text(listing.doorsideWindow)
+                                    .font(.system(size: 12))
+                            }
+                        }
+                        .foregroundStyle(Theme.textMuted)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Theme.surfaceAlt)
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .strokeBorder(Theme.border, lineWidth: 0.5)
+                                )
+                        )
+
                         // Description
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Details")

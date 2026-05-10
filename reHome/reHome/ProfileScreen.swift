@@ -2,7 +2,17 @@ import SwiftUI
 
 struct ProfileScreen: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
     private var me: SellerProfile { MockData.users["me_student"]! }
+
+    private var activeAlertCount: Int {
+        let subs = Set(subscribedSchools.split(separator: ",").map(String.init))
+        return nearbySchools
+            .filter { subs.contains($0.id) }
+            .compactMap { $0.nextUpcomingEvent }
+            .filter { $0.daysUntil >= 0 && $0.daysUntil <= 14 }
+            .count
+    }
     private var myListings: [Listing] {
         // Show a couple of sample "my posted items"
         Array(MockData.listings.filter { $0.sellerHandle == "u_emma" }.prefix(3))
@@ -66,23 +76,7 @@ struct ProfileScreen: View {
                 }
             }
             .background(Theme.bg)
-            .navigationTitle("Profile")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button { isLoggedIn = false } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "rectangle.portrait.and.arrow.right")
-                                .font(.system(size: 14))
-                            Text("Sign out")
-                                .font(.system(size: 13, weight: .medium))
-                        }
-                        .foregroundStyle(Theme.accent)
-                    }
-                }
-            }
-            .toolbarBackground(Theme.bg, for: .navigationBar)
-            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
     }
 
@@ -105,6 +99,11 @@ struct ProfileScreen: View {
                     .padding(.top, 2)
             }
             Spacer(minLength: 0)
+            Button { isLoggedIn = false } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+                    .font(.system(size: 16))
+                    .foregroundStyle(Theme.textFaint)
+            }
         }
     }
 
@@ -190,6 +189,13 @@ struct ProfileScreen: View {
             Divider().background(Theme.borderSubtle).padding(.leading, 48)
             quickLinkRow(systemName: "tray.full", label: "Drafts", count: 1)
             Divider().background(Theme.borderSubtle).padding(.leading, 48)
+            NavigationLink(destination: SchoolAlertsScreen()) {
+                quickLinkRowContent(systemName: "bell.badge",
+                                    label: "School alerts",
+                                    count: activeAlertCount > 0 ? activeAlertCount : nil)
+            }
+            .buttonStyle(.plain)
+            Divider().background(Theme.borderSubtle).padding(.leading, 48)
             quickLinkRow(systemName: "shield.lefthalf.filled", label: "Safety center", count: nil)
             Divider().background(Theme.borderSubtle).padding(.leading, 48)
             quickLinkRow(systemName: "questionmark.circle", label: "Help & support", count: nil)
@@ -203,6 +209,10 @@ struct ProfileScreen: View {
     }
 
     private func quickLinkRow(systemName: String, label: String, count: Int?) -> some View {
+        quickLinkRowContent(systemName: systemName, label: label, count: count)
+    }
+
+    private func quickLinkRowContent(systemName: String, label: String, count: Int?) -> some View {
         HStack(spacing: 14) {
             Image(systemName: systemName)
                 .font(.system(size: 16))
@@ -215,7 +225,9 @@ struct ProfileScreen: View {
             if let count {
                 Text("\(count)")
                     .font(.system(size: 12, design: .monospaced))
-                    .foregroundStyle(Theme.textMuted)
+                    .foregroundStyle(Color(hex: "D4900A"))
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Capsule().fill(Color(hex: "D4900A").opacity(0.1)))
             }
             Image(systemName: "chevron.right")
                 .font(.system(size: 12))

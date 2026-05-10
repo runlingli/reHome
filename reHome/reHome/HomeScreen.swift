@@ -7,6 +7,19 @@ struct HomeScreen: View {
 
     @State private var query: String = ""
     @State private var selectedCategory: String = "all"
+    @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
+
+    private var urgentSchoolAlert: (NearbySchool, SchoolEvent)? {
+        let subs = Set(subscribedSchools.split(separator: ",").map(String.init))
+        return nearbySchools
+            .filter { subs.contains($0.id) }
+            .compactMap { school -> (NearbySchool, SchoolEvent)? in
+                guard let ev = school.nextUpcomingEvent,
+                      ev.daysUntil >= 0, ev.daysUntil <= 14 else { return nil }
+                return (school, ev)
+            }
+            .min { $0.1.daysUntil < $1.1.daysUntil }
+    }
 
     private var filtered: [Listing] {
         MockData.listings.filter { item in
@@ -34,6 +47,11 @@ struct HomeScreen: View {
                             gradBanner
                                 .padding(.horizontal, 16)
                                 .padding(.top, 4)
+
+                            if let (school, event) = urgentSchoolAlert {
+                                SchoolAlertBanner(school: school, event: event)
+                                    .padding(.horizontal, 16)
+                            }
                         }
 
                         if query.isEmpty && selectedCategory == "all" {
@@ -73,7 +91,7 @@ struct HomeScreen: View {
                                     Button { openListing(item) } label: {
                                         ItemCard(listing: item, savedSet: $savedSet)
                                     }
-                                    .buttonStyle(.plain)
+                                    .buttonStyle(CardPressStyle())
                                 }
                             }
                         }
@@ -333,6 +351,6 @@ struct FeatureCard: View {
                     .strokeBorder(Theme.borderSubtle, lineWidth: 0.75)
             )
         }
-        .buttonStyle(.plain)
+        .buttonStyle(CardPressStyle())
     }
 }
