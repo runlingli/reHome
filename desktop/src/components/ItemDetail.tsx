@@ -113,9 +113,6 @@ export function ItemDetail() {
                 <Icon name="chat" size={16} color="#fff" />
                 Request pickup
               </button>
-              <button style={{ width: '100%', marginTop: 8, padding: '13px 16px', background: 'transparent', color: T.text, border: '1px solid ' + T.border, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                Ask a question
-              </button>
 
               <div style={{ height: 0.5, background: T.border, margin: '20px 0' }} />
               <SidebarLine label="Seller verified" value=".edu · " tone="ok" />

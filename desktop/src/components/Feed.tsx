@@ -1,11 +1,18 @@
+import { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { ITEMS, USERS, CONDITIONS } from '../data'
 import { ItemImage, Avatar, VerifiedBadge, FreeTag, Icon, SectionHeader, T, ACCENT, pillBtn } from './ui'
 import { TrustBand } from './HeroBand'
 import type { Item } from '../types'
 
+const PAGE_SIZE = 8
+
 export function Feed() {
   const { q, cat, loc, when, openItem, savedIds, toggleSave } = useStore()
+  const [page, setPage] = useState(1)
+
+  // Reset to page 1 whenever filters change
+  useEffect(() => { setPage(1) }, [q, cat, loc, when])
 
   const filtered = ITEMS.filter(it => {
     if (cat !== 'all' && it.cat !== cat) return false
@@ -18,6 +25,8 @@ export function Feed() {
 
   const featured = filtered.slice(0, 3)
   const rest = filtered.slice(3)
+  const totalPages = Math.ceil(rest.length / PAGE_SIZE)
+  const pageItems = rest.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
   const locationLabel = loc || 'Allston, MA'
 
@@ -50,10 +59,14 @@ export function Feed() {
             }
           />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20, marginTop: 18 }}>
-            {rest.map(it => (
+            {pageItems.map(it => (
               <ItemCard key={it.id} item={it} onOpen={() => openItem(it.id)} savedIds={savedIds} onSave={toggleSave} />
             ))}
           </div>
+
+          {totalPages > 1 && (
+            <Pagination page={page} totalPages={totalPages} onChange={setPage} />
+          )}
         </div>
       )}
 
@@ -67,6 +80,53 @@ export function Feed() {
 
       <TrustBand />
     </main>
+  )
+}
+
+function Pagination({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  const pages: (number | '…')[] = []
+
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i)
+  } else {
+    pages.push(1)
+    if (page > 3) pages.push('…')
+    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) pages.push(i)
+    if (page < totalPages - 2) pages.push('…')
+    pages.push(totalPages)
+  }
+
+  const btn = (label: string | number, active: boolean, disabled: boolean, onClick: () => void) => (
+    <button
+      key={String(label) + (active ? '-a' : '')}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        minWidth: 36, height: 36, padding: '0 10px',
+        borderRadius: 10,
+        border: active ? 'none' : '0.75px solid ' + T.border,
+        background: active ? T.text : disabled ? 'transparent' : T.surface,
+        color: active ? T.bg : disabled ? T.textFaint : T.text,
+        fontSize: 13, fontWeight: active ? 700 : 500,
+        cursor: disabled ? 'default' : 'pointer',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        transition: 'background 0.15s',
+      }}
+    >
+      {label}
+    </button>
+  )
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 40 }}>
+      {btn('←', false, page === 1, () => onChange(page - 1))}
+      {pages.map((p, i) =>
+        p === '…'
+          ? <span key={'ellipsis-' + i} style={{ padding: '0 4px', color: T.textFaint, fontSize: 13 }}>…</span>
+          : btn(p, p === page, false, () => onChange(p as number))
+      )}
+      {btn('→', false, page === totalPages, () => onChange(page + 1))}
+    </div>
   )
 }
 

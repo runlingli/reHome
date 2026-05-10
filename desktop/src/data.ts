@@ -129,6 +129,42 @@ export const ITEMS: Item[] = [
     photoColors: ['#E5DECC', '#383330'], photoLabel: 'office chair', saved: 47, posted: '12h',
     imageUrl: UNS('1541558088-fbbf7b5eba35'),
   },
+  {
+    id: 'i13', title: 'Flexispot E2 standing desk', titleCn: 'Flexispot E2 电动升降桌',
+    cat: 'furniture', condition: 'excellent', est: 360, age: '2 yr', pickup: 'May 18 – 22',
+    desc: 'Electric height-adjustable, 48"×24". Two memory presets. Minor cable-management marks on the desktop.',
+    descCn: '电动升降，48"×24"。双记忆预设。桌面有轻微走线痕。',
+    seller: 'u_jin', location: 'Cambridge, MA',
+    photoColors: ['#EAE4D8', '#7A6854'], photoLabel: 'standing desk', saved: 22, posted: '1d',
+    imageUrl: UNS('1593642855011-aeef9e3a4739'),
+  },
+  {
+    id: 'i14', title: 'Zojirushi rice cooker · 5.5 cup', titleCn: '象印电饭煲 5.5 杯',
+    cat: 'appliance', condition: 'excellent', est: 160, age: '1 yr', pickup: 'Mid-May',
+    desc: 'Fuzzy-logic model with timer and keep-warm. Comes with spatula and measuring cup.',
+    descCn: '模糊逻辑款，带定时和保温功能。附饭勺和量杯。',
+    seller: 'u_emma', location: 'Allston, MA',
+    photoColors: ['#F0EAE0', '#B09070'], photoLabel: 'rice cooker', saved: 33, posted: '4h',
+    imageUrl: UNS('1556909211-36987daf7b4d'),
+  },
+  {
+    id: 'i15', title: 'Area rug · 5×8 ft, beige-grey', titleCn: '地毯 5×8 ft 米灰色',
+    cat: 'household', condition: 'good', est: 90, age: '2 yr', pickup: 'May 25 – 30',
+    desc: 'Low pile, vacuumed and spot-cleaned. Pet-free, smoke-free home.',
+    descCn: '低绒毛地毯，已吸尘去污。无宠物、无烟环境。',
+    seller: 'u_dani', location: 'Somerville, MA',
+    photoColors: ['#EDE5D5', '#BFB09A'], photoLabel: 'area rug', saved: 14, posted: '3d',
+    imageUrl: UNS('1586023492125-27264f49b95c'),
+  },
+  {
+    id: 'i16', title: 'Canada Goose parka · W-M, black', titleCn: '加拿大鹅 女M 黑色羽绒服',
+    cat: 'clothing', condition: 'excellent', est: 650, age: '3 yr', pickup: 'Flexible',
+    desc: "Kensington style. Still very warm — no thinning. Dry-cleaned last winter.",
+    descCn: 'Kensington 款。保暖如初，去年干洗过。',
+    seller: 'u_lucas', location: 'Brookline, MA',
+    photoColors: ['#E5E0D8', '#1F1F1F'], photoLabel: 'parka', saved: 19, posted: '10h',
+    imageUrl: UNS('1489987707849-ff7ad9fedfb4'),
+  },
 ]
 
 export const USERS: Record<string, User> = {
