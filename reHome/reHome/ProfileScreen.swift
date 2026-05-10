@@ -4,6 +4,7 @@ import FirebaseAuth
 struct ProfileScreen: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
+    @ObservedObject private var fs = FirestoreService.shared
     private var me: SellerProfile { MockData.users["me_student"]! }
 
     private var activeAlertCount: Int {
@@ -14,9 +15,12 @@ struct ProfileScreen: View {
             .filter { $0.daysUntil >= 0 && $0.daysUntil <= 14 }
             .count
     }
+
+    /// Listings posted by the currently signed-in Firebase user.
+    /// Falls back to demo seller "u_emma" if not signed in (e.g. SwiftUI preview).
     private var myListings: [Listing] {
-        // Show a couple of sample "my posted items"
-        Array(MockData.listings.filter { $0.sellerHandle == "u_emma" }.prefix(3))
+        let uid = Auth.auth().currentUser?.uid ?? "u_emma"
+        return fs.listings.filter { $0.sellerHandle == uid }
     }
 
     var body: some View {

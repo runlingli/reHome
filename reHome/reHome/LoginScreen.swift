@@ -67,12 +67,9 @@ struct LoginScreen: View {
                     .padding(.bottom, 18)
 
                     Button { showRegister = true } label: {
-                        (Text("No account? ")
+                        Text("No account? \(Text("Sign up").foregroundStyle(Theme.accent).bold())")
                             .foregroundStyle(Theme.textMuted)
-                         + Text("Sign up")
-                            .foregroundStyle(Theme.accent)
-                            .bold())
-                        .font(.system(size: 14))
+                            .font(.system(size: 14))
                     }
 
                     Spacer(minLength: 40)

@@ -1,7 +1,9 @@
 import SwiftUI
 
 extension Color {
-    init(hex: String) {
+    /// `nonisolated` so non-MainActor code (e.g. Firestore decoders) can build colors.
+    /// SwiftUI’s underlying `Color.init(red:green:blue:)` is itself nonisolated.
+    nonisolated init(hex: String) {
         let s = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
         var v: UInt64 = 0
         Scanner(string: s).scanHexInt64(&v)

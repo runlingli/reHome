@@ -1,10 +1,13 @@
 import SwiftUI
 import PhotosUI
+import FirebaseAuth
 
 struct PublishScreen: View {
     @Environment(\.dismiss) private var dismiss
     @State private var step = 1
     @State private var showSaveSheet = false
+    @State private var isPosting = false
+    @State private var postError: String?
 
     // Step 1
     @State private var photoItems: [PhotosPickerItem] = []
@@ -239,7 +242,7 @@ struct PublishScreen: View {
                 }
             }
         }
-        .onChange(of: photoItems) { newItems in
+        .onChange(of: photoItems) { _, newItems in
             Task {
                 var imgs: [Image] = []
                 for item in newItems {
@@ -666,20 +669,64 @@ struct PublishScreen: View {
             }
             .background(Theme.bg)
 
-            Button { dismiss() } label: {
-                Text("Publish · free for everyone")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(Theme.accentInk)
+            VStack(spacing: 6) {
+                if let postError {
+                    Text(postError)
+                        .font(.system(size: 12))
+                        .foregroundStyle(Theme.accent)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 20)
+                }
+                Button {
+                    Task { await postListing() }
+                } label: {
+                    HStack(spacing: 8) {
+                        if isPosting { ProgressView().tint(Theme.accentInk) }
+                        Text(isPosting ? "Publishing…" : "Publish · free for everyone")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Theme.accentInk)
+                    }
                     .frame(maxWidth: .infinity)
                     .frame(height: 54)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent)
                     )
+                    .opacity(isPosting ? 0.7 : 1)
+                }
+                .disabled(isPosting)
+                .padding(.horizontal, 20)
             }
-            .padding(.horizontal, 20)
             .padding(.bottom, 30)
             .padding(.top, 12)
             .background(Theme.bg)
+        }
+    }
+
+    private func postListing() async {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            postError = "Not signed in."
+            return
+        }
+        postError = nil
+        isPosting = true
+        defer { isPosting = false }
+        do {
+            _ = try await FirestoreService.shared.createListing(
+                title:          title,
+                category:       category,
+                condition:      condition ?? .good,
+                estValue:       estimatedValue,
+                age:            ageOption,
+                pickup:         pickupWindow,
+                desc:           autoDesc,
+                location:       "",                    // location TODO: collect in form
+                sellerUid:      uid,
+                handoffKind:    handoffKind,
+                doorsideWindow: doorsideWindow
+            )
+            dismiss()
+        } catch {
+            postError = (error as NSError).localizedDescription
         }
     }
 

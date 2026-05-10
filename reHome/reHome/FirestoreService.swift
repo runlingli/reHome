@@ -1,12 +1,18 @@
 import Foundation
+import Combine
 import FirebaseFirestore
 import SwiftUI
 
-@MainActor
+/// Singleton Firestore facade.
+///
+/// Note on concurrency: the class itself is **not** `@MainActor` because that
+/// would force `static let shared = FirestoreService()` to be initialised on
+/// the main actor — but `static let` runs lazily on whichever thread first
+/// touches it, so Swift 6 rejects that pattern. Instead all `@Published`
+/// mutations are wrapped in `Task { @MainActor in … }`, satisfying SwiftUI's
+/// expectation that observed state changes on the main actor.
 final class FirestoreService: ObservableObject {
-    // nonisolated(unsafe): the lazy init runs before any actor context exists;
-    // safe because FirestoreService is only ever mutated on the main actor after that.
-    nonisolated(unsafe) static let shared = FirestoreService()
+    static let shared = FirestoreService()
 
     private let db = Firestore.firestore()
     private var listingsListener: ListenerRegistration?
@@ -15,17 +21,18 @@ final class FirestoreService: ObservableObject {
     @Published private(set) var isLoading: Bool = false
     @Published var lastError: String?
 
+    private init() {}
+
     // MARK: - Listings: live read (sorted by newest)
 
     func startListeningListings() {
         guard listingsListener == nil else { return }
-        isLoading = true
+        Task { @MainActor in self.isLoading = true }
+
         listingsListener = db.collection("listings")
             .order(by: "createdAt", descending: true)
             .limit(to: 50)
             .addSnapshotListener { [weak self] snap, err in
-                // Capture self weakly *inside* the MainActor Task so the
-                // weak reference is only dereferenced on the correct actor.
                 Task { @MainActor [weak self] in
                     guard let self else { return }
                     self.isLoading = false
