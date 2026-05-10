@@ -7,6 +7,7 @@ struct HomeScreen: View {
 
     @State private var query: String = ""
     @State private var selectedCategory: String = "all"
+    private let gap: CGFloat = 12
     @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
 
     private var urgentSchoolAlert: (NearbySchool, SchoolEvent)? {
@@ -32,10 +33,6 @@ struct HomeScreen: View {
         }
     }
 
-    private let columns = [
-        GridItem(.flexible(), spacing: 10),
-        GridItem(.flexible(), spacing: 10)
-    ]
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -82,20 +79,13 @@ struct HomeScreen: View {
                             .padding(.horizontal, 16)
                         }
 
-                        VStack(alignment: .leading, spacing: 10) {
+                        VStack(alignment: .leading, spacing: gap) {
                             if query.isEmpty && selectedCategory == "all" {
                                 SectionHeader(eyebrow: "Apartments closing", title: "Take it before May 31")
+                                    .padding(.horizontal, gap)
                             }
-                            LazyVGrid(columns: columns, spacing: 10) {
-                                ForEach(filtered.dropFirst().map { $0 }) { item in
-                                    Button { openListing(item) } label: {
-                                        ItemCard(listing: item, savedSet: $savedSet)
-                                    }
-                                    .buttonStyle(CardPressStyle())
-                                }
-                            }
+                            masonryGrid
                         }
-                        .padding(.horizontal, 16)
 
                         Color.clear.frame(height: 80)
                     }
@@ -120,6 +110,31 @@ struct HomeScreen: View {
             .accessibilityLabel("Post item")
         }
         .background(Theme.bg.ignoresSafeArea())
+    }
+
+    // MARK: - Masonry grid
+
+    private var masonryGrid: some View {
+        let items = Array(filtered.dropFirst())
+        let left  = stride(from: 0, to: items.count, by: 2).map { items[$0] }
+        let right = stride(from: 1, to: items.count, by: 2).map { items[$0] }
+        return HStack(alignment: .top, spacing: gap) {
+            masonryColumn(left)
+            masonryColumn(right)
+        }
+        .padding(.horizontal, gap)
+    }
+
+    private func masonryColumn(_ items: [Listing]) -> some View {
+        VStack(spacing: gap) {
+            ForEach(items) { item in
+                Button { openListing(item) } label: {
+                    ItemCard(listing: item, savedSet: $savedSet)
+                }
+                .buttonStyle(CardPressStyle())
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     // MARK: - Header (title row + search + category chips)

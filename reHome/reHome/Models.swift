@@ -59,6 +59,7 @@ struct Listing: Identifiable, Hashable {
     let savedCount: Int
     let posted: String
     var imageName: String? = nil
+    var photoAspectRatio: CGFloat = 1.0   // width ÷ height; < 1 = portrait
     var handoffKind: HandoffKind = .meetIndoor
     var doorsideWindow: String = ""
 }

@@ -182,7 +182,7 @@ struct ItemCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack(alignment: .topLeading) {
-                ListingPhoto(listing: listing, aspectRatio: 1, corner: 0)
+                ListingPhoto(listing: listing, aspectRatio: listing.photoAspectRatio, corner: 0)
                 VerifiedBadge(kind: .edu)
                     .padding(8)
             }
