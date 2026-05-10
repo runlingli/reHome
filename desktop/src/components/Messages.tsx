@@ -55,6 +55,56 @@ export function Messages() {
   )
 }
 
+function ConvSection({ label, convs, active, setActive, usersByUid, listings, completed }: {
+  label: string
+  convs: Conversation[]
+  active: Conversation
+  setActive: (c: Conversation) => void
+  usersByUid: Record<string, import('../types').User>
+  listings: import('../types').Item[]
+  completed?: boolean
+}) {
+  if (convs.length === 0) return null
+  return (
+    <>
+      <div style={{ padding: '10px 12px 4px', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: completed ? '#1F8A5B' : T.textFaint, fontFamily: '"JetBrains Mono", monospace' }}>
+        {label}
+      </div>
+      {convs.map(c => {
+        const u = usersByUid[c.with] ?? PLACEHOLDER_USER
+        const it = listings.find(i => i.id === c.item) ?? PLACEHOLDER_ITEM
+        const sel = active.id === c.id
+        return (
+          <button key={c.id} onClick={() => setActive(c)} style={{
+            display: 'flex', gap: 10, width: '100%', padding: '10px 12px',
+            borderRadius: 12, background: sel ? T.surface : 'transparent',
+            border: 'none', cursor: 'pointer', textAlign: 'left', alignItems: 'flex-start',
+            opacity: completed ? 0.75 : 1,
+          }}>
+            <Avatar user={u} size={40} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
+                <span style={{ fontSize: 10, color: T.textFaint, fontFamily: '"JetBrains Mono", monospace', flexShrink: 0 }}>{c.time}</span>
+              </div>
+              {it.title && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>re: {it.title}</div>}
+              <div style={{ fontSize: 12, color: c.unread ? T.text : T.textMuted, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {completed ? '✓ Handoff complete' : c.last}
+              </div>
+            </div>
+            {!completed && c.unread > 0 && (
+              <span style={{ minWidth: 18, height: 18, borderRadius: 999, padding: '0 6px', background: ACCENT, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.unread}</span>
+            )}
+            {completed && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#1F8A5B', background: '#E0F1E7', padding: '2px 7px', borderRadius: 999, flexShrink: 0, alignSelf: 'center' }}>Done</span>
+            )}
+          </button>
+        )
+      })}
+    </>
+  )
+}
+
 function MessagesInner({ initialConv, allConvs, isLive, myUid, pendingListingId, onClose, onOpenItem }: {
   initialConv: Conversation
   allConvs: Conversation[]
@@ -83,31 +133,8 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, pendingListingId,
             </div>
           </div>
           <div style={{ padding: '4px 8px 24px' }}>
-            {allConvs.map(c => {
-              const u = usersByUid[c.with] ?? PLACEHOLDER_USER
-              const it = listings.find(i => i.id === c.item) ?? PLACEHOLDER_ITEM
-              const sel = active.id === c.id
-              return (
-                <button key={c.id} onClick={() => setActive(c)} style={{
-                  display: 'flex', gap: 10, width: '100%', padding: '10px 12px',
-                  borderRadius: 12, background: sel ? T.surface : 'transparent',
-                  border: 'none', cursor: 'pointer', textAlign: 'left', alignItems: 'flex-start',
-                }}>
-                  <Avatar user={u} size={40} />
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name}</span>
-                      <span style={{ fontSize: 10, color: T.textFaint, fontFamily: '"JetBrains Mono", monospace', flexShrink: 0 }}>{c.time}</span>
-                    </div>
-                    {it.title && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>re: {it.title}</div>}
-                    <div style={{ fontSize: 12, color: c.unread ? T.text : T.textMuted, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.last}</div>
-                  </div>
-                  {c.unread > 0 && (
-                    <span style={{ minWidth: 18, height: 18, borderRadius: 999, padding: '0 6px', background: ACCENT, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.unread}</span>
-                  )}
-                </button>
-              )
-            })}
+            <ConvSection label="Active" convs={allConvs.filter(c => !c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} />
+            <ConvSection label="Completed" convs={allConvs.filter(c => c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} completed />
           </div>
         </div>
 

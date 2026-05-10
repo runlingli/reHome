@@ -63,6 +63,7 @@ export interface Conversation {
   lastCn: string
   time: string
   messages: Message[]
+  completed?: boolean
 }
 
 export type OverlayKind = 'item' | 'messages' | 'profile' | 'post' | null

@@ -28,7 +28,7 @@ export const ITEMS: Item[] = [
     descCn: '紧凑书桌，可放下 27" 显示器。后部有两个显示器挂架的螺丝孔。需自取。',
     seller: 'u_emma', location: 'Davis, CA',
     photoColors: ['#F4EFE6', '#D9CFB8'], photoLabel: 'desk · white', saved: 18, posted: '2d',
-    imageUrl: UNS('1518455027359-f3f8164ba6bd'),
+    imageUrl: UNS('1554078140-01f553ad4d40'),
   },
   {
     id: 'i2', title: 'Cuisinart 4-cup coffee maker', titleCn: '美膳雅 4 杯咖啡机',
@@ -37,7 +37,7 @@ export const ITEMS: Item[] = [
     descCn: '功能完好，刚刚除过水垢。附赠永久金色滤网。',
     seller: 'u_jin', location: 'Berkeley, CA',
     photoColors: ['#E8DFD0', '#B8A687'], photoLabel: 'coffee maker', saved: 7, posted: '5h',
-    imageUrl: UNS('1495474472287-4d71bcdd2085'),
+    imageUrl: UNS('1608354580875-30bd4168b351'),
   },
   {
     id: 'i3', title: 'Trek FX 2 hybrid bike', titleCn: 'Trek FX 2 城市自行车',
@@ -46,7 +46,7 @@ export const ITEMS: Item[] = [
     descCn: '中码。刚刚在 Davis Bike Church 调试过。含锁与前灯。上管有一处小划痕。',
     seller: 'u_dani', location: 'Sacramento, CA',
     photoColors: ['#EDE4D2', '#90785A'], photoLabel: 'hybrid bike', saved: 41, posted: '1d',
-    imageUrl: UNS('1558618666-fcd25c85cd64'),
+    imageUrl: UNS('1759047990878-b5a1e95f81fd'),
   },
   {
     id: 'i4', title: 'Twin XL mattress + frame', titleCn: 'Twin XL 床垫+床架',
@@ -55,7 +55,7 @@ export const ITEMS: Item[] = [
     descCn: '记忆棉床垫，全程套保护套使用。金属床架，易拆装。',
     seller: 'u_emma', location: 'Davis, CA',
     photoColors: ['#F1E9DC', '#C9B89A'], photoLabel: 'mattress', saved: 12, posted: '3d',
-    imageUrl: UNS('1631049307264-da0ec9d70304'),
+    imageUrl: UNS('1647376036543-f9f543601a1d'),
   },
   {
     id: 'i5', title: 'Dyson V8 vacuum', titleCn: '戴森 V8 吸尘器',
@@ -64,7 +64,7 @@ export const ITEMS: Item[] = [
     descCn: '附两个吸头。电池续航良好，约 35 分钟。',
     seller: 'u_jin', location: 'Berkeley, CA',
     photoColors: ['#E5E1D7', '#A09583'], photoLabel: 'vacuum', saved: 24, posted: '6h',
-    imageUrl: UNS('1558317374-067fb5f30001'),
+    imageUrl: UNS('1708529589690-00e2bbb7f327'),
   },
   {
     id: 'i6', title: 'Lodge cast-iron skillet · 10"', titleCn: 'Lodge 铸铁锅 10"',
@@ -73,7 +73,7 @@ export const ITEMS: Item[] = [
     descCn: '已养锅。薄油即不粘。',
     seller: 'u_lucas', location: 'Woodland, CA',
     photoColors: ['#E2DBCB', '#5A4A38'], photoLabel: 'skillet', saved: 5, posted: '4d',
-    imageUrl: UNS('1574071318508-1cdbab80d002'),
+    imageUrl: UNS('1603038124597-2c5c207edf47'),
   },
   {
     id: 'i7', title: 'Uniqlo down jacket · M', titleCn: '优衣库羽绒服 · 中码',
@@ -82,7 +82,7 @@ export const ITEMS: Item[] = [
     descCn: '黑色轻型款。穿过一个冬天。无污渍。',
     seller: 'u_dani', location: 'Sacramento, CA',
     photoColors: ['#EDE4D2', '#3A3530'], photoLabel: 'down jacket', saved: 9, posted: '7h',
-    imageUrl: UNS('1551698618-1dfe5d97d256'),
+    imageUrl: UNS('1706765779494-2705542ebe74'),
   },
   {
     id: 'i8', title: 'Air fryer · Cosori 5.8 qt', titleCn: '空气炸锅 · Cosori 5.8 qt',
@@ -91,7 +91,7 @@ export const ITEMS: Item[] = [
     descCn: '已彻底清洁。附原说明书。',
     seller: 'u_lucas', location: 'Woodland, CA',
     photoColors: ['#E8E2D2', '#444036'], photoLabel: 'air fryer', saved: 31, posted: '11h',
-    imageUrl: UNS('1617791160536-598cf32026fb'),
+    imageUrl: UNS('1695089028114-ce28248f0ab9'),
   },
   {
     id: 'i9', title: 'Bookshelf, 3-tier · oak', titleCn: '三层书架 · 橡木',
@@ -100,7 +100,7 @@ export const ITEMS: Item[] = [
     descCn: '结实。顶层有水印，放书后看不见。',
     seller: 'u_emma', location: 'Davis, CA',
     photoColors: ['#E9DFC9', '#8A6A45'], photoLabel: 'bookshelf', saved: 4, posted: '6d',
-    imageUrl: UNS('1481627834876-b7833e8f5570'),
+    imageUrl: UNS('1593430980369-68efc5a5eb34'),
   },
   {
     id: 'i10', title: 'Ceramic dinner set · 4 pcs', titleCn: '陶瓷餐具四件套',
@@ -109,7 +109,7 @@ export const ITEMS: Item[] = [
     descCn: 'Crate & Barrel 出品。盘碗杯各两件，二人份。',
     seller: 'u_jin', location: 'Berkeley, CA',
     photoColors: ['#F4EDDD', '#A89876'], photoLabel: 'dinnerware', saved: 11, posted: '2d',
-    imageUrl: UNS('1565193566173-7a0ee3dbe261'),
+    imageUrl: UNS('1610128361323-6e941c97f023'),
   },
   {
     id: 'i11', title: 'Standing lamp · brass', titleCn: '黄铜落地灯',
@@ -118,7 +118,7 @@ export const ITEMS: Item[] = [
     descCn: '附赠 3000K 暖光灯泡。',
     seller: 'u_dani', location: 'Sacramento, CA',
     photoColors: ['#EFE7D6', '#9A7D4A'], photoLabel: 'lamp', saved: 6, posted: '8h',
-    imageUrl: UNS('1540932239986-30128078f3c5'),
+    imageUrl: UNS('1673939859210-23d8444237ff'),
   },
   {
     id: 'i12', title: 'Office chair · Steelcase Series 1', titleCn: 'Steelcase 办公椅',
@@ -127,7 +127,7 @@ export const ITEMS: Item[] = [
     descCn: '可调扶手、腰托、头枕。无烟环境。',
     seller: 'u_lucas', location: 'Woodland, CA',
     photoColors: ['#E5DECC', '#383330'], photoLabel: 'office chair', saved: 47, posted: '12h',
-    imageUrl: UNS('1541558088-fbbf7b5eba35'),
+    imageUrl: UNS('1688578735427-994ecdea3ea4'),
   },
   {
     id: 'i13', title: 'Flexispot E2 standing desk', titleCn: 'Flexispot E2 电动升降桌',
@@ -136,7 +136,7 @@ export const ITEMS: Item[] = [
     descCn: '电动升降，48"×24"。双记忆预设。桌面有轻微走线痕。',
     seller: 'u_jin', location: 'Berkeley, CA',
     photoColors: ['#EAE4D8', '#7A6854'], photoLabel: 'standing desk', saved: 22, posted: '1d',
-    imageUrl: UNS('1593642855011-aeef9e3a4739'),
+    imageUrl: UNS('1622131278701-eb225474ffd2'),
   },
   {
     id: 'i14', title: 'Zojirushi rice cooker · 5.5 cup', titleCn: '象印电饭煲 5.5 杯',
@@ -145,7 +145,7 @@ export const ITEMS: Item[] = [
     descCn: '模糊逻辑款，带定时和保温功能。附饭勺和量杯。',
     seller: 'u_emma', location: 'Davis, CA',
     photoColors: ['#F0EAE0', '#B09070'], photoLabel: 'rice cooker', saved: 33, posted: '4h',
-    imageUrl: UNS('1556909211-36987daf7b4d'),
+    imageUrl: UNS('1536304993881-ff6e9eefa2a6'),
   },
   {
     id: 'i15', title: 'Area rug · 5×8 ft, beige-grey', titleCn: '地毯 5×8 ft 米灰色',
@@ -154,7 +154,7 @@ export const ITEMS: Item[] = [
     descCn: '低绒毛地毯，已吸尘去污。无宠物、无烟环境。',
     seller: 'u_dani', location: 'Sacramento, CA',
     photoColors: ['#EDE5D5', '#BFB09A'], photoLabel: 'area rug', saved: 14, posted: '3d',
-    imageUrl: UNS('1586023492125-27264f49b95c'),
+    imageUrl: UNS('1534889156217-d643df14f14a'),
   },
   {
     id: 'i16', title: 'Canada Goose parka · W-M, black', titleCn: '加拿大鹅 女M 黑色羽绒服',
@@ -163,7 +163,7 @@ export const ITEMS: Item[] = [
     descCn: 'Kensington 款。保暖如初，上个冬天干洗过。',
     seller: 'u_lucas', location: 'Woodland, CA',
     photoColors: ['#E5E0D8', '#1F1F1F'], photoLabel: 'parka', saved: 19, posted: '10h',
-    imageUrl: UNS('1489987707849-ff7ad9fedfb4'),
+    imageUrl: UNS('1612096536102-93f503aa2419'),
   },
 ]
 
@@ -244,6 +244,14 @@ export const CONVERSATIONS: Conversation[] = [
     last: 'I can split it into two trips if needed.', lastCn: '需要的话我可以分两次搬。', time: 'Tue',
     messages: [
       { from: 'them', text: 'I can split it into two trips if needed.', cn: '需要的话我可以分两次搬。', time: 'Tue 09:00' },
+    ],
+  },
+  {
+    id: 'c5', with: 'u_dani', item: 'i7', unread: 0, completed: true,
+    last: 'Handoff complete!', lastCn: '交接完成！', time: 'Mon',
+    messages: [
+      { from: 'me',   text: 'Just grabbed it — thanks so much!', cn: '拿到了，太感谢！', time: 'Mon 14:10' },
+      { from: 'them', text: 'Enjoy! Hope it keeps you warm next season.', cn: '好好用！希望下个冬天还能派上用场。', time: 'Mon 14:12' },
     ],
   },
 ]

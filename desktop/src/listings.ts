@@ -180,6 +180,8 @@ interface FSConversation {
   lastMessageAt?: Timestamp | null
   unread?: Record<string, number>
   createdAt?: Timestamp | null
+  sellerConfirmed?: boolean
+  receiverConfirmed?: boolean
 }
 
 interface FSMessage {
@@ -199,6 +201,7 @@ function decodeConv(id: string, d: FSConversation, myUid: string): Conversation 
     lastCn: d.lastMessage ?? '',
     time: relativeAge(d.lastMessageAt ?? null),
     messages: [],
+    completed: d.sellerConfirmed === true && d.receiverConfirmed === true,
   }
 }
 
