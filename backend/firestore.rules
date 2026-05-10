@@ -1,0 +1,102 @@
+rules_version = '2';
+
+// reHome Firestore security rules — MVP (no Cloud Functions yet)
+//
+// Verification model:
+//   • Users self-set eduVerified at create time IF their auth email ends in .edu.
+//   • localVerified MUST start false (will be flipped by a Cloud Function later).
+//   • After create, neither flag is client-mutable.
+//
+// Layout:
+//   users/{uid}                            — public profile + verification flags
+//   listings/{listingId}                   — items posted by .edu-verified students
+//   conversations/{convId}                 — id format: sortedUids.join("__") + "__" + listingId
+//   conversations/{convId}/messages/{id}   — chat messages
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn()  { return request.auth != null; }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+
+    function isEduEmail() {
+      return signedIn()
+        && request.auth.token.email is string
+        && request.auth.token.email.matches('.*[.]edu$');
+    }
+
+    // Read user's stored verified flag (cached after first call within rule eval)
+    function userDoc(uid) {
+      return get(/databases/$(database)/documents/users/$(uid)).data;
+    }
+    function isEduVerified() {
+      return signedIn() && userDoc(request.auth.uid).eduVerified == true;
+    }
+    function isLocalVerified() {
+      return signedIn() && userDoc(request.auth.uid).localVerified == true;
+    }
+    function isAnyVerified() { return isEduVerified() || isLocalVerified(); }
+
+    // Public-readable user profile, owner-writable.
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      // Create: must be self; eduVerified must equal the .edu email check;
+      // localVerified must start false.
+      allow create: if isSelf(uid)
+                    && request.resource.data.eduVerified == isEduEmail()
+                    && request.resource.data.localVerified == false;
+
+      // Update: owner only; verification flags cannot be self-mutated after create.
+      allow update: if isSelf(uid)
+                    && !(request.resource.data.diff(resource.data)
+                          .affectedKeys()
+                          .hasAny(['eduVerified','localVerified']));
+
+      allow delete: if false;
+    }
+
+    // Listings: anyone signed in can read; only .edu-verified students can write own listings.
+    match /listings/{listingId} {
+      allow read: if signedIn();
+
+      allow create: if isEduVerified()
+                    && request.resource.data.sellerUid == request.auth.uid
+                    && request.resource.data.keys().hasAll(['title','category','condition','sellerUid','createdAt']);
+
+      allow update: if isEduVerified()
+                    && resource.data.sellerUid == request.auth.uid
+                    && request.resource.data.sellerUid == request.auth.uid;
+
+      allow delete: if signedIn() && resource.data.sellerUid == request.auth.uid;
+    }
+
+    // Conversations: only the two participants may read/write.
+    match /conversations/{convId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.participants;
+
+      allow create: if signedIn()
+                    && request.auth.uid in request.resource.data.participants
+                    && isAnyVerified();
+
+      allow update: if signedIn() && request.auth.uid in resource.data.participants;
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function parent() { return get(/databases/$(database)/documents/conversations/$(convId)).data; }
+        function isConvParticipant() {
+          return signedIn() && request.auth.uid in parent().participants;
+        }
+        allow read: if isConvParticipant();
+        allow create: if isConvParticipant()
+                      && request.resource.data.from == request.auth.uid
+                      && request.resource.data.keys().hasAll(['from','text','createdAt']);
+        allow update: if false;
+        allow delete: if signedIn() && resource.data.from == request.auth.uid;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

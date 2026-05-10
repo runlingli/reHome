@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct ProfileScreen: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
@@ -99,7 +100,10 @@ struct ProfileScreen: View {
                     .padding(.top, 2)
             }
             Spacer(minLength: 0)
-            Button { isLoggedIn = false } label: {
+            Button {
+                try? Auth.auth().signOut()
+                isLoggedIn = false
+            } label: {
                 Image(systemName: "rectangle.portrait.and.arrow.right")
                     .font(.system(size: 16))
                     .foregroundStyle(Theme.textFaint)

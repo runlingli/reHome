@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// reHome Cloud Storage rules
+// Layout:
+//   /listings/{listingId}/{photoId}.jpg     listing photos (owner write, all auth read)
+//   /users/{uid}/avatar.jpg                  avatar (owner write, public read)
+//   /verification/{uid}/{file}               state ID upload — write only, never client read
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function signedIn()      { return request.auth != null; }
+    function eduVerified()   { return signedIn() && request.auth.token.eduVerified == true; }
+    function isOwner(uid)    { return signedIn() && request.auth.uid == uid; }
+
+    function isListingOwner(listingId) {
+      return signedIn()
+        && firestore.exists(/databases/(default)/documents/listings/$(listingId))
+        && firestore.get(/databases/(default)/documents/listings/$(listingId)).data.sellerUid == request.auth.uid;
+    }
+
+    // Listing photos
+    match /listings/{listingId}/{photo} {
+      allow read:   if signedIn();
+      allow create: if eduVerified()
+                    && request.resource.size < 8 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+      allow update, delete: if isListingOwner(listingId);
+    }
+
+    // Avatars (public read)
+    match /users/{uid}/avatar {
+      allow read:  if true;
+      allow write: if isOwner(uid)
+                    && request.resource.size < 2 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+
+    // Local-ID verification uploads — write only (Cloud Function processes & deletes)
+    match /verification/{uid}/{file} {
+      allow read:   if false;
+      allow write:  if isOwner(uid)
+                    && request.resource.size < 8 * 1024 * 1024
+                    && request.resource.contentType.matches('image/.*');
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

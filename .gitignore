@@ -1,0 +1,29 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+firebase-export-*
+
+# Xcode — local user state (per-user, never share)
+xcuserdata/
+*.xcuserstate
+*.xcuserdatad
+
+# macOS
+.DS_Store
+
+# Build / derived data
+build/
+DerivedData/
+
+# Secrets — service-account keys are sensitive (don't commit)
+**/serviceAccountKey.json
+**/firebase-adminsdk-*.json

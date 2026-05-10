@@ -1,4 +1,5 @@
 import SwiftUI
+import FirebaseAuth
 
 struct LoginScreen: View {
     @Binding var isLoggedIn: Bool
@@ -6,6 +7,7 @@ struct LoginScreen: View {
     @State private var email = ""
     @State private var password = ""
     @State private var errorMsg = ""
+    @State private var isWorking = false
 
     var body: some View {
         ZStack {
@@ -45,19 +47,23 @@ struct LoginScreen: View {
                             errorMsg = "Please fill in all fields."
                             return
                         }
-                        errorMsg = ""
-                        isLoggedIn = true
+                        Task { await signIn() }
                     } label: {
-                        Text("Sign in")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.accentInk)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(
-                                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                                    .fill(Theme.accent)
-                            )
+                        HStack(spacing: 8) {
+                            if isWorking { ProgressView().tint(Theme.accentInk) }
+                            Text(isWorking ? "Signing in…" : "Sign in")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.accentInk)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(
+                            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                                .fill(Theme.accent)
+                        )
+                        .opacity(isWorking ? 0.7 : 1)
                     }
+                    .disabled(isWorking)
                     .padding(.bottom, 18)
 
                     Button { showRegister = true } label: {
@@ -76,6 +82,18 @@ struct LoginScreen: View {
         }
         .fullScreenCover(isPresented: $showRegister) {
             RegisterScreen(isLoggedIn: $isLoggedIn)
+        }
+    }
+
+    private func signIn() async {
+        errorMsg = ""
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            _ = try await Auth.auth().signIn(withEmail: email, password: password)
+            isLoggedIn = true
+        } catch {
+            errorMsg = (error as NSError).localizedDescription
         }
     }
 }

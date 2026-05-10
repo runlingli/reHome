@@ -1,4 +1,6 @@
 import SwiftUI
+import FirebaseAuth
+import FirebaseFirestore
 
 struct RegisterScreen: View {
     @Binding var isLoggedIn: Bool
@@ -9,6 +11,7 @@ struct RegisterScreen: View {
     @State private var password = ""
     @State private var confirmPassword = ""
     @State private var errorMsg = ""
+    @State private var isWorking = false
 
     var body: some View {
         ZStack {
@@ -74,19 +77,27 @@ struct RegisterScreen: View {
                             errorMsg = "Passwords do not match."
                             return
                         }
-                        errorMsg = ""
-                        isLoggedIn = true
+                        guard password.count >= 6 else {
+                            errorMsg = "Password must be at least 6 characters."
+                            return
+                        }
+                        Task { await register() }
                     } label: {
-                        Text("Create account")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.accentInk)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 15)
-                            .background(
-                                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
-                                    .fill(Theme.accent)
-                            )
+                        HStack(spacing: 8) {
+                            if isWorking { ProgressView().tint(Theme.accentInk) }
+                            Text(isWorking ? "Creating…" : "Create account")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.accentInk)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 15)
+                        .background(
+                            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                                .fill(Theme.accent)
+                        )
+                        .opacity(isWorking ? 0.7 : 1)
                     }
+                    .disabled(isWorking)
                     .padding(.bottom, 20)
 
                     Text("By signing up you agree to our Terms & Privacy Policy.")
@@ -98,6 +109,40 @@ struct RegisterScreen: View {
                 }
                 .padding(.horizontal, 28)
             }
+        }
+    }
+
+    private func register() async {
+        errorMsg = ""
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            let result = try await Auth.auth().createUser(withEmail: email, password: password)
+            let uid = result.user.uid
+            let isEdu = email.lowercased().hasSuffix(".edu")
+            let initials = name.split(separator: " ").prefix(2)
+                .compactMap { $0.first }.map(String.init).joined().uppercased()
+            let school = isEdu
+                ? (email.split(separator: "@").last.map(String.init) ?? "")
+                    .replacingOccurrences(of: ".edu", with: "").uppercased()
+                : ""
+
+            try await Firestore.firestore().collection("users").document(uid).setData([
+                "name":           name,
+                "handle":         "@" + (email.split(separator: "@").first.map(String.init) ?? "user"),
+                "school":         school,
+                "bio":            "",
+                "avatarColor":    "#C8553D",
+                "avatarInitials": initials.isEmpty ? "U" : initials,
+                "rating":         5.0,
+                "deals":          0,
+                "eduVerified":    isEdu,
+                "localVerified":  false,
+                "createdAt":      FieldValue.serverTimestamp(),
+            ])
+            isLoggedIn = true
+        } catch {
+            errorMsg = (error as NSError).localizedDescription
         }
     }
 }
