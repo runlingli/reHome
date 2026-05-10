@@ -3,11 +3,12 @@
 // components only swap their data source, not their props.
 
 import {
-  collection, doc, getDoc, limit, onSnapshot, orderBy, query,
+  collection, doc, getDoc, setDoc, updateDoc,
+  limit, onSnapshot, orderBy, where, query,
   serverTimestamp, addDoc, type Timestamp,
 } from 'firebase/firestore'
 import { auth, db } from './firebase'
-import type { Item, User } from './types'
+import type { Item, User, Conversation, Message } from './types'
 
 /** Best-effort relative age, e.g. "5h" / "2d". */
 function relativeAge(ts?: Timestamp | null): string {
@@ -163,4 +164,123 @@ export async function createListing(input: NewListingInput): Promise<string> {
     createdAt:    serverTimestamp(),
   })
   return ref.id
+}
+
+// ─── Conversations ────────────────────────────────────────────────────────────
+
+interface FSConversation {
+  participants?: string[]
+  listingId?: string
+  lastMessage?: string
+  lastMessageAt?: Timestamp | null
+  unread?: Record<string, number>
+  createdAt?: Timestamp | null
+}
+
+interface FSMessage {
+  from?: string
+  text?: string
+  createdAt?: Timestamp | null
+}
+
+function decodeConv(id: string, d: FSConversation, myUid: string): Conversation {
+  const otherUid = (d.participants ?? []).find(p => p !== myUid) ?? ''
+  return {
+    id,
+    with: otherUid,
+    item: d.listingId ?? '',
+    unread: d.unread?.[myUid] ?? 0,
+    last: d.lastMessage ?? '',
+    lastCn: d.lastMessage ?? '',
+    time: relativeAge(d.lastMessageAt ?? null),
+    messages: [],
+  }
+}
+
+function decodeMsg(d: FSMessage, myUid: string): Message {
+  const ts = d.createdAt
+  const time = ts
+    ? new Date(ts.toMillis()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : 'now'
+  return {
+    from: d.from === myUid ? 'me' : 'them',
+    text: d.text ?? '',
+    cn:   d.text ?? '',
+    time,
+  }
+}
+
+/** Subscribe to all conversations the current user participates in. */
+export function subscribeToConversations(
+  myUid: string,
+  onChange: (convs: Conversation[]) => void,
+): () => void {
+  const q = query(
+    collection(db, 'conversations'),
+    where('participants', 'array-contains', myUid),
+    orderBy('lastMessageAt', 'desc'),
+    limit(30),
+  )
+  return onSnapshot(
+    q,
+    snap => onChange(snap.docs.map(d => decodeConv(d.id, d.data() as FSConversation, myUid))),
+    err => console.error('[conversations] snapshot error:', err),
+  )
+}
+
+/** Subscribe to messages inside a conversation. */
+export function subscribeToMessages(
+  convId: string,
+  myUid: string,
+  onChange: (msgs: Message[]) => void,
+): () => void {
+  const q = query(
+    collection(db, 'conversations', convId, 'messages'),
+    orderBy('createdAt', 'asc'),
+  )
+  return onSnapshot(
+    q,
+    snap => onChange(snap.docs.map(d => decodeMsg(d.data() as FSMessage, myUid))),
+    err => console.error('[messages] snapshot error:', err),
+  )
+}
+
+/** Send a message and update the conversation's lastMessage. */
+export async function sendMessage(convId: string, text: string): Promise<void> {
+  const u = auth.currentUser
+  if (!u) throw new Error('Not signed in.')
+  await addDoc(collection(db, 'conversations', convId, 'messages'), {
+    from: u.uid,
+    text,
+    createdAt: serverTimestamp(),
+  })
+  await updateDoc(doc(db, 'conversations', convId), {
+    lastMessage:    text,
+    lastMessageAt:  serverTimestamp(),
+  })
+}
+
+/**
+ * Return the conversation ID for two users about a listing, creating the doc
+ * if it doesn't exist yet. ID format: sortedUids.join("__") + "__" + listingId
+ */
+export async function getOrCreateConversation(
+  myUid: string,
+  otherUid: string,
+  listingId: string,
+): Promise<string> {
+  const convId = [myUid, otherUid].sort().join('__') + '__' + listingId
+  const ref = doc(db, 'conversations', convId)
+  const snap = await getDoc(ref)
+  if (!snap.exists()) {
+    await setDoc(ref, {
+      participants:   [myUid, otherUid],
+      listingId,
+      lastMessage:    '',
+      lastMessageAt:  serverTimestamp(),
+      unread:         { [myUid]: 0, [otherUid]: 0 },
+      createdAt:      serverTimestamp(),
+    })
+  }
+  return convId
 }

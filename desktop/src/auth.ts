@@ -13,16 +13,21 @@ import { doc, getDoc, serverTimestamp, setDoc, updateDoc } from 'firebase/firest
 import { auth, db, googleProvider } from './firebase'
 
 const SCHOOL_MAP: Record<string, string> = {
-  'mit.edu': 'MIT',
-  'harvard.edu': 'Harvard University',
-  'bu.edu': 'Boston University',
-  'northeastern.edu': 'Northeastern University',
-  'bc.edu': 'Boston College',
-  'tufts.edu': 'Tufts University',
-  'brandeis.edu': 'Brandeis University',
-  'wellesley.edu': 'Wellesley College',
-  'emerson.edu': 'Emerson College',
-  'suffolk.edu': 'Suffolk University',
+  'ucdavis.edu':      'UC Davis',
+  'berkeley.edu':     'UC Berkeley',
+  'ucla.edu':         'UCLA',
+  'ucsb.edu':         'UC Santa Barbara',
+  'ucsc.edu':         'UC Santa Cruz',
+  'uci.edu':          'UC Irvine',
+  'ucsd.edu':         'UC San Diego',
+  'ucr.edu':          'UC Riverside',
+  'ucsf.edu':         'UCSF',
+  'csus.edu':         'Sacramento State',
+  'csueastbay.edu':   'CSU East Bay',
+  'sfsu.edu':         'SF State',
+  'mit.edu':          'MIT',
+  'harvard.edu':      'Harvard University',
+  'stanford.edu':     'Stanford University',
 }
 
 function schoolFromEmail(email: string): string {

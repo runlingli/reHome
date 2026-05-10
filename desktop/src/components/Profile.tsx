@@ -177,9 +177,12 @@ export function Profile() {
               {/* .edu card */}
               <VerifyCard
                 kind="edu"
-                status="active"
-                detail="@you.bu.edu · Boston University"
+                status={me.eduVerified ? 'active' : 'add'}
+                detail={me.eduVerified
+                  ? `${me.handle} · ${me.school || 'University'}`
+                  : 'Verify your .edu email to post items and unlock the green badge.'}
                 onManage={() => setEduManageOpen(o => !o)}
+                onStart={() => setVerifyModal('edu')}
               />
               {/* Local card */}
               <VerifyCard
@@ -191,13 +194,12 @@ export function Profile() {
             </div>
 
             {/* .edu manage panel */}
-            {eduManageOpen && (
+            {eduManageOpen && me.eduVerified && (
               <div style={{ marginTop: 16, padding: '20px 24px', background: EDU.bg, borderRadius: 16, border: '1px solid ' + EDU.color + '33' }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: EDU.color, marginBottom: 12 }}>Managing .edu verification</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                  <ManageRow label="Verified email" value="you@bu.edu" />
-                  <ManageRow label="Institution" value="Boston University" />
-                  <ManageRow label="Verified on" value="Mar 12, 2026" />
+                  <ManageRow label="Verified email" value={currentUser?.email ?? me.handle} />
+                  <ManageRow label="Institution" value={me.school || 'University'} />
                   <ManageRow label="Status" value="Active" tone="ok" />
                 </div>
                 <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>

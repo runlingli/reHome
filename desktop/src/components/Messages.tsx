@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { CONVERSATIONS } from '../data'
+import { subscribeToMessages, sendMessage, getOrCreateConversation } from '../listings'
+import { auth } from '../firebase'
 import { Overlay, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
 import type { Conversation, Message, User, Item } from '../types'
 
@@ -17,22 +19,45 @@ const PLACEHOLDER_ITEM: Item = {
 }
 
 export function Messages() {
-  const { overlay, closeOverlay, openItem } = useStore()
+  const { overlay, closeOverlay, openItem, conversations, currentUser } = useStore()
   if (overlay.kind !== 'messages') return null
 
-  const initialConv = overlay.withUser
-    ? CONVERSATIONS.find(c => c.with === overlay.withUser) ?? CONVERSATIONS[0]
-    : CONVERSATIONS[0]
+  // Prefer live Firestore conversations; fall back to demo mock data
+  const allConvs = conversations.length > 0 ? conversations : CONVERSATIONS
 
-  return <MessagesInner initialConv={initialConv} onClose={closeOverlay} onOpenItem={openItem} />
+  let initialConv: Conversation
+  if (overlay.withUser) {
+    initialConv = allConvs.find(c => c.with === overlay.withUser) ?? allConvs[0]
+  } else {
+    initialConv = allConvs[0]
+  }
+
+  return (
+    <MessagesInner
+      initialConv={initialConv}
+      allConvs={allConvs}
+      isLive={conversations.length > 0}
+      myUid={currentUser?.id ?? null}
+      onClose={closeOverlay}
+      onOpenItem={openItem}
+    />
+  )
 }
 
-function MessagesInner({ initialConv, onClose, onOpenItem }: {
-  initialConv: Conversation; onClose: () => void; onOpenItem: (id: string) => void
+function MessagesInner({ initialConv, allConvs, isLive, myUid, onClose, onOpenItem }: {
+  initialConv: Conversation
+  allConvs: Conversation[]
+  isLive: boolean
+  myUid: string | null
+  onClose: () => void
+  onOpenItem: (id: string) => void
 }) {
   const usersByUid = useStore(s => s.usersByUid)
   const listings = useStore(s => s.listings)
   const [active, setActive] = useState(initialConv)
+
+  // When the user navigates to a new conv, sync active
+  useEffect(() => { setActive(initialConv) }, [initialConv.id])
 
   return (
     <Overlay onClose={onClose}>
@@ -47,7 +72,7 @@ function MessagesInner({ initialConv, onClose, onOpenItem }: {
             </div>
           </div>
           <div style={{ padding: '4px 8px 24px' }}>
-            {CONVERSATIONS.map(c => {
+            {allConvs.map(c => {
               const u = usersByUid[c.with] ?? PLACEHOLDER_USER
               const it = listings.find(i => i.id === c.item) ?? PLACEHOLDER_ITEM
               const sel = active.id === c.id
@@ -75,26 +100,77 @@ function MessagesInner({ initialConv, onClose, onOpenItem }: {
           </div>
         </div>
 
-        <ChatPane conv={active} onOpenItem={onOpenItem} />
+        <ChatPane
+          conv={active}
+          isLive={isLive}
+          myUid={myUid}
+          onOpenItem={onOpenItem}
+        />
       </div>
     </Overlay>
   )
 }
 
-function ChatPane({ conv, onOpenItem }: { conv: Conversation; onOpenItem: (id: string) => void }) {
+function ChatPane({ conv, isLive, myUid, onOpenItem }: {
+  conv: Conversation
+  isLive: boolean
+  myUid: string | null
+  onOpenItem: (id: string) => void
+}) {
   const usersByUid = useStore(s => s.usersByUid)
   const listings = useStore(s => s.listings)
   const u = usersByUid[conv.with] ?? PLACEHOLDER_USER
   const it = listings.find(i => i.id === conv.item) ?? PLACEHOLDER_ITEM
+
+  // Live messages state (Firestore) or mock messages from conv
   const [msgs, setMsgs] = useState<Message[]>(conv.messages)
   const [draft, setDraft] = useState('')
+  const [sending, setSending] = useState(false)
+  const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setMsgs(conv.messages) }, [conv.id])
+  useEffect(() => {
+    if (!isLive || !myUid) {
+      setMsgs(conv.messages)
+      return
+    }
+    // Subscribe to real messages for this conversation
+    const unsub = subscribeToMessages(conv.id, myUid, (live) => {
+      setMsgs(live)
+    })
+    return unsub
+  }, [conv.id, isLive, myUid])
 
-  const send = () => {
-    if (!draft.trim()) return
-    setMsgs(m => [...m, { from: 'me', text: draft, cn: draft, time: 'now' }])
+  // Scroll to bottom when messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [msgs])
+
+  const send = async () => {
+    const text = draft.trim()
+    if (!text) return
     setDraft('')
+    if (isLive && myUid) {
+      setSending(true)
+      try {
+        // Ensure conversation doc exists (handles "Request pickup" path)
+        const fbUser = auth.currentUser
+        if (fbUser && conv.with) {
+          const convId = conv.id.includes('__')
+            ? conv.id
+            : await getOrCreateConversation(myUid, conv.with, conv.item)
+          await sendMessage(convId, text)
+        }
+      } catch (e) {
+        console.error('[send]', e)
+        // Optimistic fallback
+        setMsgs(m => [...m, { from: 'me', text, cn: text, time: 'now' }])
+      } finally {
+        setSending(false)
+      }
+    } else {
+      // Demo mode: append locally
+      setMsgs(m => [...m, { from: 'me', text, cn: text, time: 'now' }])
+    }
   }
 
   return (
@@ -128,6 +204,7 @@ function ChatPane({ conv, onOpenItem }: { conv: Conversation; onOpenItem: (id: s
           Both parties verified · chat opened
         </div>
         {msgs.map((m, i) => <Bubble key={i} mine={m.from === 'me'} text={m.text} time={m.time} />)}
+        <div ref={bottomRef} />
       </div>
 
       {/* Composer */}
@@ -136,12 +213,16 @@ function ChatPane({ conv, onOpenItem }: { conv: Conversation; onOpenItem: (id: s
           <input
             value={draft}
             onChange={e => setDraft(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') send() }}
+            onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
             placeholder="Message"
             style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 14 }}
           />
         </div>
-        <button onClick={send} style={{ padding: '0 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+        <button
+          onClick={send}
+          disabled={sending || !draft.trim()}
+          style={{ padding: '0 20px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 999, cursor: sending ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: sending ? 0.6 : 1 }}
+        >
           Send
         </button>
       </div>

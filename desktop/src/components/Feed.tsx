@@ -34,13 +34,13 @@ export function Feed() {
   const totalPages = Math.ceil(rest.length / PAGE_SIZE)
   const pageItems = rest.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const locationLabel = loc || 'Allston, MA'
+  const locationLabel = loc || 'Davis, CA'
 
   return (
     <main style={{ maxWidth: 1320, margin: '0 auto', padding: '32px 32px 80px' }}>
       {featured.length > 0 && (
         <>
-          <SectionHeader eyebrow="Apartments closing · May 18 – 22" title="Picked for you" />
+          <SectionHeader eyebrow="Apartments closing · June 18 – 22" title="Picked for you" />
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 18 }}>
             {featured.map(it => (
               <ItemCard key={it.id} item={it} onOpen={() => openItem(it.id)} savedIds={savedIds} onSave={toggleSave} big />

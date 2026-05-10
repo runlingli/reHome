@@ -1,11 +1,11 @@
 import { create } from 'zustand'
 import { onAuthStateChanged } from 'firebase/auth'
 import { auth as fbAuth } from './firebase'
-import { subscribeToListings, fetchUser, primeUser } from './listings'
+import { subscribeToListings, subscribeToConversations, fetchUser, primeUser } from './listings'
 import { promoteEduIfReady } from './auth'
-import { USERS as MOCK_USERS } from './data'
+import { ITEMS as MOCK_ITEMS, USERS as MOCK_USERS } from './data'
 import { users as apiUsers, clearTokens } from './api'
-import type { OverlayState, Item, User } from './types'
+import type { OverlayState, Item, User, Conversation } from './types'
 
 export type ProfileTab = 'listings' | 'saved' | 'history' | 'verifications'
 
@@ -40,6 +40,7 @@ interface AppState {
   // Live data from Firestore
   listings: Item[]
   usersByUid: Record<string, User>
+  conversations: Conversation[]
 
   // Notifications
   notifOpen: boolean
@@ -85,8 +86,9 @@ export const useStore = create<AppState>((set, get) => ({
   currentUser: null,
   sessionLoading: false,
 
-  listings: [],
+  listings: [...MOCK_ITEMS],
   usersByUid: { ...MOCK_USERS },
+  conversations: [],
 
   notifOpen: false,
   notifPrefs: new Set(['furniture', 'appliance']),
@@ -142,6 +144,7 @@ export const useStore = create<AppState>((set, get) => ({
     Object.entries(MOCK_USERS).forEach(([uid, u]) => primeUser(uid, u))
 
     let unsubListings: (() => void) | null = null
+    let unsubConversations: (() => void) | null = null
 
     const startListings = () => {
       if (unsubListings) return
@@ -159,11 +162,16 @@ export const useStore = create<AppState>((set, get) => ({
         set({ usersByUid: updates })
       })
     }
+    const startConversations = (uid: string) => {
+      if (unsubConversations) return
+      unsubConversations = subscribeToConversations(uid, (convs) => {
+        set({ conversations: convs })
+      })
+    }
     const stopListings = () => {
-      if (!unsubListings) return
-      unsubListings()
-      unsubListings = null
-      set({ listings: [] })
+      if (unsubListings) { unsubListings(); unsubListings = null }
+      if (unsubConversations) { unsubConversations(); unsubConversations = null }
+      set({ listings: [...MOCK_ITEMS], conversations: [] })
     }
 
     // Auth state — Firebase persists session in IndexedDB; this fires
@@ -192,6 +200,7 @@ export const useStore = create<AppState>((set, get) => ({
         })
         promoteEduIfReady().catch(() => {})
         startListings()
+        startConversations(fbUser.uid)
       } catch (err) {
         console.error('[store] failed to load /me:', err)
         set({ sessionLoading: false })

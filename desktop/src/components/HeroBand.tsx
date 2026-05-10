@@ -14,7 +14,7 @@ export function HeroBand() {
         }}>
           <div>
             <div style={{ fontSize: 11, fontFamily: '"JetBrains Mono", monospace', color: '#8A4A38', letterSpacing: 1.4, textTransform: 'uppercase' }}>
-              Grad season · class of '26
+              Grad season · UC Davis '26
             </div>
             <h1 style={{ margin: '14px 0 10px', fontSize: 48, fontWeight: 800, lineHeight: 1.04, letterSpacing: -1.2, maxWidth: 540, color: T.text }}>
               Pass it on,<br />not on the curb.
@@ -32,9 +32,9 @@ export function HeroBand() {
             </button>
           </div>
           <div style={{ position: 'absolute', right: 36, top: 36, fontFamily: '"JetBrains Mono", monospace', fontSize: 11, color: '#8A4A38', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
-            <span style={{ letterSpacing: 0.6 }}>05 / 31</span>
+            <span style={{ letterSpacing: 0.6 }}>06 / 13</span>
             <span style={{ width: 40, height: 0.5, background: '#8A4A38', opacity: 0.4 }} />
-            <span style={{ letterSpacing: 0.4, opacity: 0.7 }}>last move-out</span>
+            <span style={{ letterSpacing: 0.4, opacity: 0.7 }}>UC Davis move-out</span>
           </div>
         </div>
 
