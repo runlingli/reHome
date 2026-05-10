@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import type { OverlayState } from './types'
 
+export type ProfileTab = 'listings' | 'saved' | 'history' | 'verifications'
+
 interface AppState {
   q: string
   cat: string
@@ -9,6 +11,7 @@ interface AppState {
   role: 'student' | 'local'
   savedIds: Set<string>
   overlay: OverlayState
+  profileInitialTab: ProfileTab
 
   setQ: (q: string) => void
   setCat: (cat: string) => void
@@ -20,6 +23,7 @@ interface AppState {
   openItem: (id: string) => void
   openMessages: (withUser?: string) => void
   openProfile: () => void
+  openProfileTab: (tab: ProfileTab) => void
   openPost: () => void
   closeOverlay: () => void
 }
@@ -32,6 +36,7 @@ export const useStore = create<AppState>((set) => ({
   role: 'student',
   savedIds: new Set(['i3', 'i12']),
   overlay: { kind: null },
+  profileInitialTab: 'listings',
 
   setQ: (q) => set({ q }),
   setCat: (cat) => set({ cat }),
@@ -47,7 +52,8 @@ export const useStore = create<AppState>((set) => ({
 
   openItem: (itemId) => set({ overlay: { kind: 'item', itemId } }),
   openMessages: (withUser) => set({ overlay: { kind: 'messages', withUser } }),
-  openProfile: () => set({ overlay: { kind: 'profile' } }),
+  openProfile: () => set({ profileInitialTab: 'listings', overlay: { kind: 'profile' } }),
+  openProfileTab: (tab) => set({ profileInitialTab: tab, overlay: { kind: 'profile' } }),
   openPost: () => set({ overlay: { kind: 'post' } }),
   closeOverlay: () => set({ overlay: { kind: null } }),
 }))

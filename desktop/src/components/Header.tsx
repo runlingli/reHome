@@ -4,7 +4,7 @@ import { CATEGORIES, USERS, LOCATIONS, WHEN_OPTIONS } from '../data'
 import { Logo, Icon, Avatar, VerifiedBadge, T, ACCENT, pillBtn } from './ui'
 
 export function Header() {
-  const { q, setQ, cat, setCat, loc, setLoc, when, setWhen, role, switchRole, openPost, openMessages, openProfile } = useStore()
+  const { q, setQ, cat, setCat, loc, setLoc, when, setWhen, role, switchRole, openPost, openMessages, openProfile, openProfileTab } = useStore()
   const [activeDropdown, setActiveDropdown] = useState<'where' | 'when' | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const pillRef = useRef<HTMLDivElement>(null)
@@ -150,7 +150,7 @@ export function Header() {
             <Avatar user={USERS[role === 'student' ? 'me_student' : 'me_local']} size={28} />
           </button>
           {accountOpen && (
-            <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} onClose={() => setAccountOpen(false)} />
+            <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} onClose={() => setAccountOpen(false)} />
           )}
         </div>
       </div>
@@ -240,7 +240,7 @@ function NavIconBtn({ icon, onClick, badge }: { icon: string; onClick?: () => vo
   )
 }
 
-function AccountMenu({ role, switchRole, openProfile, onClose }: { role: string; switchRole: () => void; openProfile: () => void; onClose: () => void }) {
+function AccountMenu({ role, switchRole, openProfile, openProfileTab, openMessages, onClose }: { role: string; switchRole: () => void; openProfile: () => void; openProfileTab: (tab: import('../store').ProfileTab) => void; openMessages: () => void; onClose: () => void }) {
   const me = USERS[role === 'student' ? 'me_student' : 'me_local']
   return (
     <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: T.surface, borderRadius: 14, border: '0.75px solid ' + T.border, boxShadow: '0 16px 40px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 60 }}>
@@ -257,10 +257,10 @@ function AccountMenu({ role, switchRole, openProfile, onClose }: { role: string;
         ) : (
           <div style={{ padding: '8px 8px 4px' }}><VerifiedBadge kind="local" /></div>
         )}
-        <MenuRow icon="filter" label="My listings" onClick={() => { openProfile(); onClose() }} />
-        <MenuRow icon="heart"  label="Saved" />
-        <MenuRow icon="chat"   label="Messages" />
-        <MenuRow icon="shield" label="Verifications" />
+        <MenuRow icon="filter" label="My listings"    onClick={() => { openProfile(); onClose() }} />
+        <MenuRow icon="heart"  label="Saved"          onClick={() => { openProfileTab('saved'); onClose() }} />
+        <MenuRow icon="chat"   label="Messages"       onClick={() => { openMessages(); onClose() }} />
+        <MenuRow icon="shield" label="Verifications"  onClick={() => { openProfileTab('verifications'); onClose() }} />
         <div style={{ height: 0.5, background: T.border, margin: '4px 0' }} />
         <MenuRow icon="globe" label={`Switch role · ${role === 'student' ? 'Local' : 'Student'}`} onClick={() => { switchRole(); onClose() }} />
         <MenuRow icon="globe" label="Help & guidelines" />
