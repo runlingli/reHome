@@ -117,9 +117,14 @@ struct GoogleSignInRow: View {
             Task { await go() }
         } label: {
             HStack(spacing: 10) {
-                Image(systemName: "g.circle.fill")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Color(hex: "4285F4"))
+                ZStack {
+                    Circle().fill(Color.white)
+                    Text("G")
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(Color(hex: "4285F4"))
+                }
+                .frame(width: 22, height: 22)
+                .shadow(color: Color.black.opacity(0.10), radius: 1, x: 0, y: 1)
                 Text("Continue with Google")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(Theme.text)
