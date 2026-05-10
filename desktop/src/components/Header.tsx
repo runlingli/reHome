@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { useStore } from '../store'
 import { CATEGORIES, USERS, LOCATIONS, WHEN_OPTIONS } from '../data'
 import { Logo, Icon, Avatar, VerifiedBadge, T, ACCENT, pillBtn } from './ui'
+import { auth as apiAuth } from '../api'
 
 export function Header() {
   const { q, setQ, cat, setCat, loc, setLoc, when, setWhen, role, switchRole, openPost, openMessages, openProfile, openProfileTab, currentUser, openAuth, signOut, openNotif } = useStore()
@@ -154,7 +155,7 @@ export function Header() {
                 <Avatar user={USERS[role === 'student' ? 'me_student' : 'me_local']} size={28} />
               </button>
               {accountOpen && (
-                <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} signOut={() => { signOut(); setAccountOpen(false) }} onClose={() => setAccountOpen(false)} />
+                <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} signOut={async () => { try { await apiAuth.logout() } catch { /* ignore */ } signOut(); setAccountOpen(false) }} onClose={() => setAccountOpen(false)} />
               )}
             </>
           ) : (

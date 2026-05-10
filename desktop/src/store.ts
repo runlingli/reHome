@@ -1,12 +1,19 @@
 import { create } from 'zustand'
 import type { OverlayState } from './types'
+import { users as apiUsers, clearTokens, hasToken } from './api'
 
 export type ProfileTab = 'listings' | 'saved' | 'history' | 'verifications'
 
 export interface AuthUser {
+  id?: string
   email: string
   name: string
   school: string
+  handle?: string
+  eduVerified?: boolean
+  localVerified?: boolean
+  avatarInitials?: string
+  avatarColor?: string
 }
 
 interface AppState {
@@ -23,6 +30,7 @@ interface AppState {
   authOpen: boolean
   authMode: 'login' | 'signup'
   currentUser: AuthUser | null
+  sessionLoading: boolean
 
   // Notifications
   notifOpen: boolean
@@ -46,6 +54,7 @@ interface AppState {
   closeAuth: () => void
   signIn: (user: AuthUser) => void
   signOut: () => void
+  initSession: () => Promise<void>
 
   openNotif: () => void
   closeNotif: () => void
@@ -65,6 +74,7 @@ export const useStore = create<AppState>((set) => ({
   authOpen: false,
   authMode: 'signup',
   currentUser: null,
+  sessionLoading: false,
 
   notifOpen: false,
   notifPrefs: new Set(['furniture', 'appliance']),
@@ -90,8 +100,49 @@ export const useStore = create<AppState>((set) => ({
 
   openAuth: (mode = 'signup') => set({ authOpen: true, authMode: mode }),
   closeAuth: () => set({ authOpen: false }),
-  signIn: (user) => set({ currentUser: user, authOpen: false }),
-  signOut: () => set({ currentUser: null, overlay: { kind: null } }),
+
+  signIn: (user) => {
+    // Sync saved IDs from API if available
+    set((s) => ({
+      currentUser: user,
+      authOpen: false,
+      // API returns saved_listing_ids on the user object after login
+      savedIds: (user as { savedIds?: Set<string> }).savedIds ?? s.savedIds,
+    }))
+  },
+
+  signOut: async () => {
+    clearTokens()
+    set({ currentUser: null, overlay: { kind: null } })
+  },
+
+  // Called once on app mount — restores session from stored token
+  initSession: async () => {
+    if (!hasToken()) return
+    set({ sessionLoading: true })
+    try {
+      const me = await apiUsers.me()
+      set({
+        currentUser: {
+          id: me.id,
+          email: me.email,
+          name: me.name,
+          school: me.school,
+          handle: me.handle,
+          eduVerified: me.edu_verified,
+          localVerified: me.local_verified,
+          avatarInitials: me.avatar_initials,
+          avatarColor: me.avatar_color,
+        },
+        savedIds: me.saved_listing_ids ? new Set(me.saved_listing_ids) : new Set(['i3', 'i12']),
+      })
+    } catch {
+      // Token invalid or expired — clear silently
+      clearTokens()
+    } finally {
+      set({ sessionLoading: false })
+    }
+  },
 
   openNotif: () => set({ notifOpen: true }),
   closeNotif: () => set({ notifOpen: false }),

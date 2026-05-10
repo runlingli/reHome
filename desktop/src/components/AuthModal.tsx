@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { Logo, Icon, T, ACCENT } from './ui'
+import { auth as apiAuth, setTokens, ApiError } from '../api'
 
 const SCHOOL_MAP: Record<string, string> = {
   'mit.edu': 'MIT',
@@ -22,12 +23,34 @@ function schoolFromEmail(email: string): string {
   return base.charAt(0).toUpperCase() + base.slice(1)
 }
 
+function friendlyError(e: unknown): string {
+  if (e instanceof ApiError) {
+    const map: Record<string, string> = {
+      INVALID_EDU_EMAIL: 'This email domain is not recognised as a university .edu address.',
+      EMAIL_TAKEN:       'An account with this email already exists. Try logging in.',
+      WRONG_PASSWORD:    'Incorrect password. Please try again.',
+      TOKEN_EXPIRED:     'Your session expired. Please log in again.',
+    }
+    return map[e.code] ?? e.message
+  }
+  if (e instanceof TypeError) {
+    // Network / CORS error (backend not live yet)
+    return 'Could not reach the server. Please try again later.'
+  }
+  return 'Something went wrong. Please try again.'
+}
+
 const inputStyle: React.CSSProperties = {
   display: 'block', width: '100%', padding: '12px 14px',
   borderRadius: 10, border: '1px solid ' + T.border,
   fontSize: 14, color: T.text, background: T.bg,
-  outline: 'none', boxSizing: 'border-box',
-  fontFamily: 'inherit',
+  outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit',
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'block', fontSize: 11, fontWeight: 700, color: T.textMuted,
+  letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6,
+  fontFamily: '"JetBrains Mono", monospace',
 }
 
 export function AuthModal() {
@@ -38,32 +61,73 @@ export function AuthModal() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => { setTab(authMode); setError('') }, [authMode])
-  useEffect(() => { if (!authOpen) { setName(''); setEmail(''); setPassword(''); setError('') } }, [authOpen])
+  useEffect(() => {
+    if (!authOpen) { setName(''); setEmail(''); setPassword(''); setError(''); setLoading(false) }
+  }, [authOpen])
 
   if (!authOpen) return null
 
   const clearError = () => setError('')
 
-  const handleSignup = () => {
-    if (!name.trim()) { setError('Please enter your full name.'); return }
-    if (!email.toLowerCase().endsWith('.edu')) {
-      setError('reHome requires a university .edu email to sign up.')
-      return
+  const handleSignup = async () => {
+    if (!name.trim())                      { setError('Please enter your full name.'); return }
+    if (!email.toLowerCase().endsWith('.edu')) { setError('reHome requires a university .edu email to sign up.'); return }
+    if (password.length < 6)               { setError('Password must be at least 6 characters.'); return }
+
+    setLoading(true)
+    try {
+      const res = await apiAuth.register({
+        name: name.trim(),
+        email: email.toLowerCase(),
+        password,
+        school: schoolFromEmail(email.toLowerCase()),
+      })
+      setTokens(res.access_token, res.refresh_token)
+      signIn({
+        id:             res.user.id,
+        email:          res.user.email,
+        name:           res.user.name,
+        school:         res.user.school,
+        handle:         res.user.handle,
+        eduVerified:    res.user.edu_verified,
+        localVerified:  res.user.local_verified,
+        avatarInitials: res.user.avatar_initials,
+        avatarColor:    res.user.avatar_color,
+      })
+    } catch (e) {
+      setError(friendlyError(e))
+    } finally {
+      setLoading(false)
     }
-    if (password.length < 6) { setError('Password must be at least 6 characters.'); return }
-    signIn({ email: email.toLowerCase(), name: name.trim(), school: schoolFromEmail(email.toLowerCase()) })
   }
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (!email.includes('@')) { setError('Please enter a valid email address.'); return }
-    if (!password) { setError('Please enter your password.'); return }
-    if (!email.toLowerCase().endsWith('.edu')) {
-      setError('Only .edu accounts can log in as students. Check your email or sign up.')
-      return
+    if (!password)            { setError('Please enter your password.'); return }
+
+    setLoading(true)
+    try {
+      const res = await apiAuth.login({ email: email.toLowerCase(), password })
+      setTokens(res.access_token, res.refresh_token)
+      signIn({
+        id:             res.user.id,
+        email:          res.user.email,
+        name:           res.user.name,
+        school:         res.user.school,
+        handle:         res.user.handle,
+        eduVerified:    res.user.edu_verified,
+        localVerified:  res.user.local_verified,
+        avatarInitials: res.user.avatar_initials,
+        avatarColor:    res.user.avatar_color,
+      })
+    } catch (e) {
+      setError(friendlyError(e))
+    } finally {
+      setLoading(false)
     }
-    signIn({ email: email.toLowerCase(), name: email.split('@')[0], school: schoolFromEmail(email.toLowerCase()) })
   }
 
   return (
@@ -117,7 +181,7 @@ export function AuthModal() {
             <label style={labelStyle}>{tab === 'signup' ? 'University .edu email' : 'Email'}</label>
             <input
               style={inputStyle}
-              placeholder={tab === 'signup' ? 'you@university.edu' : 'you@university.edu'}
+              placeholder="you@university.edu"
               value={email}
               onChange={e => { setEmail(e.target.value); clearError() }}
               type="email"
@@ -139,6 +203,7 @@ export function AuthModal() {
                 placeholder={tab === 'signup' ? 'At least 6 characters' : 'Your password'}
                 value={password}
                 onChange={e => { setPassword(e.target.value); clearError() }}
+                onKeyDown={e => { if (e.key === 'Enter') tab === 'signup' ? handleSignup() : handleLogin() }}
               />
               <button
                 onClick={() => setShowPw(v => !v)}
@@ -157,9 +222,10 @@ export function AuthModal() {
 
           <button
             onClick={tab === 'signup' ? handleSignup : handleLogin}
-            style={{ width: '100%', marginTop: 4, padding: '13px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer', letterSpacing: 0.1 }}
+            disabled={loading}
+            style={{ width: '100%', marginTop: 4, padding: '13px', background: loading ? T.border : ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', letterSpacing: 0.1, transition: 'background 0.15s' }}
           >
-            {tab === 'signup' ? 'Create account' : 'Log in'}
+            {loading ? 'Please wait…' : tab === 'signup' ? 'Create account' : 'Log in'}
           </button>
         </div>
 
@@ -184,10 +250,4 @@ export function AuthModal() {
       </div>
     </div>
   )
-}
-
-const labelStyle: React.CSSProperties = {
-  display: 'block', fontSize: 11, fontWeight: 700, color: T.textMuted,
-  letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 6,
-  fontFamily: '"JetBrains Mono", monospace',
 }

@@ -12,7 +12,10 @@ import { AuthModal } from './components/AuthModal'
 import { NotifPanel } from './components/NotifPanel'
 
 export default function App() {
-  const { overlay, closeOverlay } = useStore()
+  const { overlay, closeOverlay, initSession } = useStore()
+
+  // Restore session from stored JWT on first load
+  useEffect(() => { initSession() }, [initSession])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOverlay() }
