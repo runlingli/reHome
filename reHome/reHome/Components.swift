@@ -69,18 +69,33 @@ struct ListingPhoto: View {
     }
 }
 
-// MARK: - Avatar (default hare icon)
+// MARK: - Avatar (animal icon, deterministic from user id)
 struct AvatarView: View {
     let user: SellerProfile
     var size: CGFloat = 36
 
+    private static let animalPool: [(symbol: String, bg: String, fg: String)] = [
+        ("hare.fill",     "E8E0D4", "8A7560"),
+        ("tortoise.fill", "D4E8D8", "4A7A5A"),
+        ("bird.fill",     "D4E0F0", "4A6A9A"),
+        ("fish.fill",     "D4EEF0", "3A8A90"),
+        ("cat.fill",      "EEE0F0", "8A4A9A"),
+        ("dog.fill",      "F0E8D0", "9A7A3A"),
+        ("lizard.fill",   "DCF0D4", "5A8A4A"),
+        ("ladybug.fill",  "F0D4D4", "9A3A3A"),
+    ]
+
+    private var animal: (symbol: String, bg: String, fg: String) {
+        Self.animalPool[abs(user.id.hashValue) % Self.animalPool.count]
+    }
+
     var body: some View {
         ZStack {
-            Circle().fill(Color(hex: "E8E0D4"))
-            Image(systemName: "hare.fill")
+            Circle().fill(Color(hex: animal.bg))
+            Image(systemName: animal.symbol)
                 .resizable()
                 .scaledToFit()
-                .foregroundStyle(Color(hex: "8A7560"))
+                .foregroundStyle(Color(hex: animal.fg))
                 .padding(size * 0.22)
         }
         .frame(width: size, height: size)
