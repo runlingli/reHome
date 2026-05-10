@@ -182,6 +182,8 @@ interface FSConversation {
   createdAt?: Timestamp | null
   sellerConfirmed?: boolean
   receiverConfirmed?: boolean
+  dealProposed?: boolean
+  dealAccepted?: boolean
 }
 
 interface FSMessage {
@@ -201,7 +203,9 @@ function decodeConv(id: string, d: FSConversation, myUid: string): Conversation 
     lastCn: d.lastMessage ?? '',
     time: relativeAge(d.lastMessageAt ?? null),
     messages: [],
-    completed: d.sellerConfirmed === true && d.receiverConfirmed === true,
+    completed:     d.sellerConfirmed === true && d.receiverConfirmed === true,
+    dealProposed:  d.dealProposed === true,
+    dealAccepted:  d.dealAccepted === true,
   }
 }
 
@@ -266,6 +270,27 @@ export async function sendMessage(convId: string, text: string): Promise<void> {
     lastMessage:    text,
     lastMessageAt:  serverTimestamp(),
   })
+}
+
+/**
+ * Seller proposes a deal — sets dealProposed on the conversation and marks
+ * the listing as "claimed" so no new conversations can be started.
+ */
+export async function proposeDeal(convId: string, listingId: string): Promise<void> {
+  const u = auth.currentUser
+  if (!u) throw new Error('Not signed in.')
+  await updateDoc(doc(db, 'conversations', convId), { dealProposed: true })
+  await updateDoc(doc(db, 'listings', listingId), { status: 'claimed' })
+}
+
+/**
+ * Receiver accepts the deal — sets dealAccepted on the conversation.
+ * Item remains "claimed"; physical handoff confirmed separately.
+ */
+export async function acceptDeal(convId: string): Promise<void> {
+  const u = auth.currentUser
+  if (!u) throw new Error('Not signed in.')
+  await updateDoc(doc(db, 'conversations', convId), { dealAccepted: true })
 }
 
 /** Confirm handoff from one side. When both confirm, listing status → "completed". */

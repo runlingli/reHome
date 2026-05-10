@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../store'
 import { CONVERSATIONS } from '../data'
-import { subscribeToMessages, sendMessage, getOrCreateConversation, confirmHandoff } from '../listings'
+import { subscribeToMessages, sendMessage, getOrCreateConversation, confirmHandoff, proposeDeal, acceptDeal } from '../listings'
 import { auth } from '../firebase'
 import { Overlay, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
 import type { Conversation, Message, User, Item } from '../types'
@@ -55,7 +55,7 @@ export function Messages() {
   )
 }
 
-function ConvSection({ label, convs, active, setActive, usersByUid, listings, completed }: {
+function ConvSection({ label, convs, active, setActive, usersByUid, listings, completed, claimed }: {
   label: string
   convs: Conversation[]
   active: Conversation
@@ -63,11 +63,12 @@ function ConvSection({ label, convs, active, setActive, usersByUid, listings, co
   usersByUid: Record<string, import('../types').User>
   listings: import('../types').Item[]
   completed?: boolean
+  claimed?: boolean
 }) {
   if (convs.length === 0) return null
   return (
     <>
-      <div style={{ padding: '10px 12px 4px', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: completed ? '#1F8A5B' : T.textFaint, fontFamily: '"JetBrains Mono", monospace' }}>
+      <div style={{ padding: '10px 12px 4px', fontSize: 10, fontWeight: 700, letterSpacing: 0.8, textTransform: 'uppercase', color: completed ? '#1F8A5B' : claimed ? '#9A6500' : T.textFaint, fontFamily: '"JetBrains Mono", monospace' }}>
         {label}
       </div>
       {convs.map(c => {
@@ -89,14 +90,17 @@ function ConvSection({ label, convs, active, setActive, usersByUid, listings, co
               </div>
               {it.title && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 1 }}>re: {it.title}</div>}
               <div style={{ fontSize: 12, color: c.unread ? T.text : T.textMuted, marginTop: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {completed ? '✓ Handoff complete' : c.last}
+                {completed ? '✓ Handoff complete' : claimed ? '🤝 已成交 · 等待交接' : c.last}
               </div>
             </div>
-            {!completed && c.unread > 0 && (
+            {!completed && !claimed && c.unread > 0 && (
               <span style={{ minWidth: 18, height: 18, borderRadius: 999, padding: '0 6px', background: ACCENT, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{c.unread}</span>
             )}
             {completed && (
               <span style={{ fontSize: 10, fontWeight: 700, color: '#1F8A5B', background: '#E0F1E7', padding: '2px 7px', borderRadius: 999, flexShrink: 0, alignSelf: 'center' }}>Done</span>
+            )}
+            {claimed && (
+              <span style={{ fontSize: 10, fontWeight: 700, color: '#9A6500', background: '#FFF0CC', padding: '2px 7px', borderRadius: 999, flexShrink: 0, alignSelf: 'center' }}>已成交</span>
             )}
           </button>
         )
@@ -133,7 +137,8 @@ function MessagesInner({ initialConv, allConvs, isLive, myUid, pendingListingId,
             </div>
           </div>
           <div style={{ padding: '4px 8px 24px' }}>
-            <ConvSection label="Active" convs={allConvs.filter(c => !c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} />
+            <ConvSection label="Active" convs={allConvs.filter(c => !c.dealAccepted && !c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} />
+            <ConvSection label="已成交" convs={allConvs.filter(c => c.dealAccepted && !c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} claimed />
             <ConvSection label="Completed" convs={allConvs.filter(c => c.completed)} active={active} setActive={setActive} usersByUid={usersByUid} listings={listings} completed />
           </div>
         </div>
@@ -170,6 +175,10 @@ function ChatPane({ conv, isLive, myUid, pendingListingId, onOpenItem }: {
   const [sellerConfirmed, setSellerConfirmed] = useState(false)
   const [receiverConfirmed, setReceiverConfirmed] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [dealProposed, setDealProposed] = useState(conv.dealProposed ?? false)
+  const [dealAccepted, setDealAccepted] = useState(conv.dealAccepted ?? false)
+  const [proposing, setProposing] = useState(false)
+  const [accepting, setAccepting] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
 
   const isSeller = myUid !== null && it.seller === myUid
@@ -180,6 +189,8 @@ function ChatPane({ conv, isLive, myUid, pendingListingId, onOpenItem }: {
     setResolvedConvId(conv.id)
     setSellerConfirmed(false)
     setReceiverConfirmed(false)
+    setDealProposed(conv.dealProposed ?? false)
+    setDealAccepted(conv.dealAccepted ?? false)
     if (!isLive || !myUid) {
       setMsgs(conv.messages)
       return
@@ -241,6 +252,34 @@ function ChatPane({ conv, isLive, myUid, pendingListingId, onOpenItem }: {
     }
   }
 
+  const propose = async () => {
+    if (!isLive || !myUid || !it.id) return
+    setProposing(true)
+    try {
+      const convId = await getConvId()
+      await proposeDeal(convId, it.id)
+      setDealProposed(true)
+    } catch (e) {
+      console.error('[propose]', e)
+    } finally {
+      setProposing(false)
+    }
+  }
+
+  const accept = async () => {
+    if (!isLive || !myUid) return
+    setAccepting(true)
+    try {
+      const convId = await getConvId()
+      await acceptDeal(convId)
+      setDealAccepted(true)
+    } catch (e) {
+      console.error('[accept]', e)
+    } finally {
+      setAccepting(false)
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 700 }}>
       {/* Header */}
@@ -281,8 +320,58 @@ function ChatPane({ conv, isLive, myUid, pendingListingId, onOpenItem }: {
         <div ref={bottomRef} />
       </div>
 
-      {/* Confirm banner */}
-      {isLive && it.id && !bothConfirmed && (
+      {/* 拍板成交 — deal-lock flow (shown before deal is accepted) */}
+      {isLive && it.id && !dealAccepted && !bothConfirmed && (
+        <div style={{ borderTop: '0.5px solid ' + T.border }}>
+          {isSeller ? (
+            !dealProposed ? (
+              <button
+                onClick={propose}
+                disabled={proposing}
+                style={{ width: '100%', padding: '13px', background: '#FFF8EC', border: 'none', cursor: proposing ? 'default' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: proposing ? 0.6 : 1 }}
+              >
+                <span style={{ fontSize: 16 }}>🤝</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#9A6500' }}>
+                  {proposing ? '正在提交…' : '拍板成交'}
+                </span>
+              </button>
+            ) : (
+              <div style={{ padding: '11px 24px', background: '#FFF8EC', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 7, height: 7, borderRadius: 999, background: '#E1A82A' }} />
+                <span style={{ fontSize: 12, color: '#9A6500' }}>已提出成交，等待对方确认…</span>
+              </div>
+            )
+          ) : (
+            dealProposed && (
+              <div style={{ padding: '12px 20px', background: '#FFF8EC', display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 16 }}>🤝</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: '#9A6500', flex: 1 }}>对方提出成交，是否同意？</span>
+                <button
+                  onClick={accept}
+                  disabled={accepting}
+                  style={{ padding: '7px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 999, cursor: accepting ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: accepting ? 0.6 : 1 }}
+                >
+                  {accepting ? '…' : '✓ 同意'}
+                </button>
+              </div>
+            )
+          )}
+        </div>
+      )}
+
+      {/* 已成交 banner (deal locked, waiting for physical handoff) */}
+      {dealAccepted && !bothConfirmed && (
+        <div style={{ padding: '13px 24px', background: '#FFF8EC', borderTop: '0.5px solid #E1A82A44', display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16 }}>🤝</span>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#9A6500' }}>已成交 · 物品已锁定</div>
+            <div style={{ fontSize: 11, color: '#B8892A', marginTop: 2 }}>请双方安排交接，完成后点击下方确认</div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm handoff (only visible after deal is locked) */}
+      {isLive && it.id && dealAccepted && !bothConfirmed && (
         <div style={{ borderTop: '0.5px solid ' + T.border }}>
           {!myConfirmed ? (
             <button

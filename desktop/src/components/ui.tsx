@@ -93,15 +93,35 @@ export function ItemImage({ item, aspect = '1', height, radius = 16 }: ItemImage
 }
 
 // ── Avatar ────────────────────────────────────────────────────────────────────
+// Animal pool mirrors iOS AvatarView.animalPool — same 8 slots, same palette.
+const ANIMAL_POOL = [
+  { emoji: '🐰', bg: '#E8E0D4' },
+  { emoji: '🐢', bg: '#D4E8D8' },
+  { emoji: '🐦', bg: '#D4E0F0' },
+  { emoji: '🐟', bg: '#D4EEF0' },
+  { emoji: '🐈', bg: '#EEE0F0' },
+  { emoji: '🐕', bg: '#F0E8D0' },
+  { emoji: '🦎', bg: '#DCF0D4' },
+  { emoji: '🐞', bg: '#F0D4D4' },
+]
+
+function hashHandle(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0
+  return Math.abs(h)
+}
+
 export function Avatar({ user, size = 36 }: { user: User; size?: number }) {
+  const animal = ANIMAL_POOL[hashHandle(user.handle) % ANIMAL_POOL.length]
   return (
     <div style={{
       width: size, height: size, borderRadius: size,
-      background: user.avatarColor, color: '#fff',
+      background: animal.bg,
       display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontWeight: 600, fontSize: size * 0.38, flexShrink: 0,
+      fontSize: size * 0.54, lineHeight: 1, flexShrink: 0,
+      boxShadow: 'inset 0 0 0 0.5px rgba(0,0,0,0.07)',
     }}>
-      {user.avatarInitials}
+      {animal.emoji}
     </div>
   )
 }

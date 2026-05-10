@@ -64,6 +64,8 @@ export interface Conversation {
   time: string
   messages: Message[]
   completed?: boolean
+  dealProposed?: boolean  // seller proposed "拍板成交"
+  dealAccepted?: boolean  // receiver accepted → item locked
 }
 
 export type OverlayKind = 'item' | 'messages' | 'profile' | 'post' | null

@@ -168,6 +168,11 @@ export function ItemCard({ item, onOpen, savedIds, onSave, big }: {
         <div style={{ position: 'absolute', bottom: 8, right: 8, padding: '3px 8px', background: 'rgba(0,0,0,0.55)', backdropFilter: 'blur(6px)', borderRadius: 999, color: '#fff', fontSize: 10, fontFamily: '"JetBrains Mono", monospace', letterSpacing: 0.4 }}>
           posted {item.posted}
         </div>
+        {item.status === 'claimed' && (
+          <div style={{ position: 'absolute', inset: 0, borderRadius: 16, background: 'rgba(0,0,0,0.38)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#fff', background: '#9A6500CC', padding: '5px 12px', borderRadius: 999, letterSpacing: 0.3, backdropFilter: 'blur(4px)' }}>已成交</span>
+          </div>
+        )}
       </div>
       <div style={{ padding: '0 2px', display: 'flex', flexDirection: 'column', gap: 4 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>

@@ -113,16 +113,22 @@ export function ItemDetail() {
               <div style={{ fontSize: 12, color: T.textMuted, marginTop: 8, lineHeight: 1.5 }}>
                 Estimated retail value shown so receivers see what's being passed on. No money changes hands.
               </div>
-              <button
-                onClick={() => {
-                  if (currentUser) { closeOverlay(); openMessages(item.seller, item.id) }
-                  else { closeOverlay(); openAuth('login') }
-                }}
-                style={{ width: '100%', marginTop: 18, padding: '14px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
-              >
-                <Icon name="chat" size={16} color="#fff" />
-                {currentUser ? 'Request pickup' : 'Sign in to request'}
-              </button>
+              {item.status === 'claimed' ? (
+                <div style={{ width: '100%', marginTop: 18, padding: '14px 16px', background: '#FFF0CC', border: '0.75px solid #E1A82A66', borderRadius: 12, fontSize: 14, fontWeight: 600, color: '#9A6500', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                  🤝 已成交 · 暂停接受请求
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (currentUser) { closeOverlay(); openMessages(item.seller, item.id) }
+                    else { closeOverlay(); openAuth('login') }
+                  }}
+                  style={{ width: '100%', marginTop: 18, padding: '14px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                >
+                  <Icon name="chat" size={16} color="#fff" />
+                  {currentUser ? 'Request pickup' : 'Sign in to request'}
+                </button>
+              )}
 
               <div style={{ height: 0.5, background: T.border, margin: '20px 0' }} />
               <SidebarLine label="Seller verified" value=".edu · " tone="ok" />
