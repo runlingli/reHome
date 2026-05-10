@@ -18,9 +18,22 @@
 		395AED422FAFE84500A3BDC1 /* reHome.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = reHome.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		395AED502FAFE84600A3BDC2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 395AED412FAFE84500A3BDC1 /* reHome */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		395AED442FAFE84500A3BDC1 /* reHome */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				395AED502FAFE84600A3BDC2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+			);
 			path = reHome;
 			sourceTree = "<group>";
 		};
