@@ -83,7 +83,7 @@ private struct ConversationRow: View {
     let conversation: Conversation
     let highlight: String
 
-    private var user: SellerProfile { MockData.users[conversation.withUser]! }
+    private var user: SellerProfile { MockData.user(for: conversation.withUser) }
     private var listing: Listing? { MockData.listings.first { $0.id == conversation.listingId } }
 
     var body: some View {

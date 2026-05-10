@@ -176,7 +176,7 @@ struct ItemCard: View {
     let listing: Listing
     @Binding var savedSet: Set<String>
 
-    private var seller: SellerProfile { MockData.users[listing.sellerHandle]! }
+    private var seller: SellerProfile { MockData.user(for: listing.sellerHandle) }
     private var saved: Bool { savedSet.contains(listing.id) }
 
     var body: some View {

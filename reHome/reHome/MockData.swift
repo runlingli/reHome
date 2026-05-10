@@ -100,6 +100,27 @@ enum MockData {
               imageName: "item_i12", photoAspectRatio: 1.0),
     ]
 
+    /// Look up a seller by handle/uid. Falls back to a generic placeholder
+    /// when the listing was posted by a real Firebase user not in mock data.
+    static func user(for handle: String) -> SellerProfile {
+        if let u = users[handle] { return u }
+        let initials = handle.split(separator: "_").last
+            .map { String($0.prefix(2)).uppercased() } ?? "U"
+        return SellerProfile(
+            id: handle,
+            name: "Member",
+            handle: "@" + handle.prefix(8),
+            school: "",
+            eduVerified: true,
+            localVerified: false,
+            rating: 5.0,
+            deals: 0,
+            bio: "",
+            avatarColor: Theme.accent,
+            avatarInitials: initials
+        )
+    }
+
     static let conversations: [Conversation] = [
         .init(id: "c1", withUser: "u_emma",  listingId: "i1",  unread: 2, lastMessage: "I can swing by Saturday at 2?", time: "11:42"),
         .init(id: "c2", withUser: "u_dani",  listingId: "i3",  unread: 0, lastMessage: "Cool — see you Sunday.", time: "Yesterday"),

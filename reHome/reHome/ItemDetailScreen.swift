@@ -5,7 +5,7 @@ struct ItemDetailScreen: View {
     @Binding var savedSet: Set<String>
     @Environment(\.dismiss) private var dismiss
 
-    private var seller: SellerProfile { MockData.users[listing.sellerHandle]! }
+    private var seller: SellerProfile { MockData.user(for: listing.sellerHandle) }
     private var saved: Bool { savedSet.contains(listing.id) }
 
     var body: some View {

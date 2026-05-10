@@ -5,6 +5,7 @@ struct HomeScreen: View {
     let openListing: (Listing) -> Void
     let openPublish: () -> Void
 
+    @ObservedObject private var fs = FirestoreService.shared
     @State private var query: String = ""
     @State private var selectedCategory: String = "all"
     private let gap: CGFloat = 12
@@ -22,8 +23,9 @@ struct HomeScreen: View {
             .min { $0.1.daysUntil < $1.1.daysUntil }
     }
 
+    /// Live Firestore data with local search/category filters applied.
     private var filtered: [Listing] {
-        MockData.listings.filter { item in
+        fs.listings.filter { item in
             if selectedCategory != "all", item.category != selectedCategory { return false }
             if !query.isEmpty {
                 let blob = (item.title + " " + item.location + " " + item.desc).lowercased()
@@ -110,6 +112,18 @@ struct HomeScreen: View {
             .accessibilityLabel("Post item")
         }
         .background(Theme.bg.ignoresSafeArea())
+        .task { fs.startListeningListings() }
+        .overlay(alignment: .top) {
+            if let err = fs.lastError {
+                Text(err)
+                    .font(.system(size: 12))
+                    .foregroundStyle(Theme.accent)
+                    .padding(8)
+                    .background(Theme.accentSoft)
+                    .clipShape(Capsule())
+                    .padding(.top, 8)
+            }
+        }
     }
 
     // MARK: - Masonry grid
@@ -309,7 +323,7 @@ struct FeatureCard: View {
     @Binding var savedSet: Set<String>
     let action: () -> Void
 
-    private var seller: SellerProfile { MockData.users[listing.sellerHandle]! }
+    private var seller: SellerProfile { MockData.user(for: listing.sellerHandle) }
     private var saved: Bool { savedSet.contains(listing.id) }
 
     var body: some View {
