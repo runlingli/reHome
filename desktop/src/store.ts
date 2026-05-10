@@ -128,9 +128,12 @@ export const useStore = create<AppState>((set, get) => ({
 
   /**
    * Bootstrap Firebase auth subscription + Firestore listings stream.
-   * Called once from App.tsx on mount; safe to call multiple times because
-   * onAuthStateChanged returns a fresh listener each time, but we don't
-   * unsubscribe (lifetime = whole session).
+   * Called once from App.tsx on mount.
+   *
+   * IMPORTANT: Firestore rules require `signedIn()` to read /listings, so the
+   * listings subscription is started only AFTER the user signs in (and torn
+   * down on sign out). Otherwise the very first snapshot read fails with
+   * PERMISSION_DENIED and the listener stays in an error state forever.
    */
   initSession: async () => {
     set({ sessionLoading: true })
@@ -138,10 +141,36 @@ export const useStore = create<AppState>((set, get) => ({
     // Seed user cache with mock fallbacks (covers seeded sellers u_emma etc.).
     Object.entries(MOCK_USERS).forEach(([uid, u]) => primeUser(uid, u))
 
-    // 1. Auth state — Firebase persists session in IndexedDB; this fires
-    //    immediately with current user (or null) and on any future change.
+    let unsubListings: (() => void) | null = null
+
+    const startListings = () => {
+      if (unsubListings) return
+      unsubListings = subscribeToListings(async (items) => {
+        set({ listings: items })
+        const known = get().usersByUid
+        const missing = Array.from(new Set(items.map(i => i.seller)))
+          .filter(uid => uid && !known[uid])
+        if (missing.length === 0) return
+        const fetched = await Promise.all(
+          missing.map(uid => fetchUser(uid).then(u => [uid, u] as const))
+        )
+        const updates: Record<string, User> = { ...get().usersByUid }
+        for (const [uid, u] of fetched) if (u) updates[uid] = u
+        set({ usersByUid: updates })
+      })
+    }
+    const stopListings = () => {
+      if (!unsubListings) return
+      unsubListings()
+      unsubListings = null
+      set({ listings: [] })
+    }
+
+    // Auth state — Firebase persists session in IndexedDB; this fires
+    // immediately with current user (or null) and on any future change.
     onAuthStateChanged(fbAuth, async (fbUser) => {
       if (!fbUser) {
+        stopListings()
         set({ currentUser: null, sessionLoading: false })
         return
       }
@@ -162,25 +191,11 @@ export const useStore = create<AppState>((set, get) => ({
           sessionLoading: false,
         })
         promoteEduIfReady().catch(() => {})
+        startListings()
       } catch (err) {
         console.error('[store] failed to load /me:', err)
         set({ sessionLoading: false })
       }
-    })
-
-    // 2. Listings stream — populate the feed in real time.
-    subscribeToListings(async (items) => {
-      set({ listings: items })
-      const known = get().usersByUid
-      const missing = Array.from(new Set(items.map(i => i.seller)))
-        .filter(uid => uid && !known[uid])
-      if (missing.length === 0) return
-      const fetched = await Promise.all(
-        missing.map(uid => fetchUser(uid).then(u => [uid, u] as const))
-      )
-      const updates: Record<string, User> = { ...get().usersByUid }
-      for (const [uid, u] of fetched) if (u) updates[uid] = u
-      set({ usersByUid: updates })
     })
   },
 
