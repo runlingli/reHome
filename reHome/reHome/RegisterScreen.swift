@@ -15,6 +15,7 @@ struct RegisterScreen: View {
     @State private var isWorking = false
     @State private var avatarAnimal: String?
     @State private var avatarImage: UIImage?
+    @StateObject private var loc = LocationCapture()
 
     var body: some View {
         ZStack {
@@ -46,7 +47,10 @@ struct RegisterScreen: View {
                         .padding(.bottom, 28)
 
                     AvatarPickerSection(selectedAnimal: $avatarAnimal, selectedImage: $avatarImage)
-                        .padding(.bottom, 28)
+                        .padding(.bottom, 20)
+
+                    locationRow
+                        .padding(.bottom, 24)
 
                     VStack(spacing: 14) {
                         AuthField(label: "Name",
@@ -129,18 +133,91 @@ struct RegisterScreen: View {
         }
     }
 
+    @ViewBuilder
+    private var locationRow: some View {
+        HStack(spacing: 12) {
+            Image(systemName: locationIcon)
+                .font(.system(size: 16))
+                .foregroundStyle(locationIconColor)
+                .frame(width: 36, height: 36)
+                .background(Circle().fill(Theme.surface).overlay(Circle().strokeBorder(Theme.border, lineWidth: 0.75)))
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(locationTitle)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+                Text(locationSubtitle)
+                    .font(.system(size: 11))
+                    .foregroundStyle(Theme.textMuted)
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button(locationButtonLabel) { loc.capture() }
+                .font(.system(size: 12, weight: .semibold))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 7)
+                .background(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                .foregroundStyle(Theme.text)
+                .opacity(locationButtonDisabled ? 0.5 : 1)
+                .disabled(locationButtonDisabled)
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: Radius.md, style: .continuous).fill(Theme.surface.opacity(0.4)))
+    }
+
+    private var locationIcon: String {
+        switch loc.phase {
+        case .captured: return "location.fill"
+        case .denied:   return "location.slash"
+        case .failed:   return "exclamationmark.triangle"
+        default:        return "location"
+        }
+    }
+    private var locationIconColor: Color {
+        switch loc.phase {
+        case .captured: return Theme.eduColor
+        case .denied, .failed: return Theme.accent
+        default: return Theme.textMuted
+        }
+    }
+    private var locationTitle: String {
+        if case .captured(let c) = loc.phase { return c.label }
+        return "Set your campus or city"
+    }
+    private var locationSubtitle: String {
+        switch loc.phase {
+        case .idle:                 return "Helps neighbours and classmates find your listings."
+        case .requesting:           return "Locating…"
+        case .captured:             return "Tap to update."
+        case .denied:               return "Denied. Enable location access in Settings to set this later."
+        case .failed(let m):        return m
+        }
+    }
+    private var locationButtonLabel: String {
+        switch loc.phase {
+        case .captured: return "Update"
+        case .requesting: return "…"
+        default: return "Allow"
+        }
+    }
+    private var locationButtonDisabled: Bool {
+        if case .requesting = loc.phase { return true }
+        return false
+    }
+
     private func register() async {
         errorMsg = ""
         isWorking = true
         defer { isWorking = false }
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         do {
-            let result = try await Auth.auth().createUser(withEmail: email, password: password)
+            let result = try await Auth.auth().createUser(withEmail: cleanEmail, password: password)
             let uid = result.user.uid
             let initials = name.split(separator: " ").prefix(2)
                 .compactMap { $0.first }.map(String.init).joined().uppercased()
-            let isEdu = email.lowercased().hasSuffix(".edu")
+            let isEdu = cleanEmail.hasSuffix(".edu")
             let school = isEdu
-                ? (email.split(separator: "@").last.map(String.init) ?? "")
+                ? (cleanEmail.split(separator: "@").last.map(String.init) ?? "")
                     .replacingOccurrences(of: ".edu", with: "").uppercased()
                 : ""
 
@@ -149,7 +226,7 @@ struct RegisterScreen: View {
             // flips it to true on the next app foreground.
             var userData: [String: Any] = [
                 "name":           name,
-                "handle":         "@" + (email.split(separator: "@").first.map(String.init) ?? "user"),
+                "handle":         "@" + (cleanEmail.split(separator: "@").first.map(String.init) ?? "user"),
                 "school":         school,
                 "bio":            "",
                 "avatarColor":    "#C8553D",
@@ -170,6 +247,12 @@ struct RegisterScreen: View {
                 userData["avatarAnimal"] = animal
             }
 
+            if case .captured(let c) = loc.phase {
+                userData["lat"]      = c.lat
+                userData["lng"]      = c.lng
+                userData["cityArea"] = c.label
+            }
+
             try await Firestore.firestore().collection("users").document(uid).setData(userData)
 
             // Send the verification email asynchronously; we don't block on it.
@@ -177,7 +260,7 @@ struct RegisterScreen: View {
 
             isLoggedIn = true
         } catch {
-            errorMsg = (error as NSError).localizedDescription
+            errorMsg = AuthErrorMessage.friendly(error)
         }
     }
 }

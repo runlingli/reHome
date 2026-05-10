@@ -44,6 +44,8 @@
 	</array>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Choose a profile photo for your avatar.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Tag your listings with your campus or neighbourhood so nearby students can find them.</string>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

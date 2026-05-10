@@ -97,11 +97,12 @@ struct LoginScreen: View {
         errorMsg = ""
         isWorking = true
         defer { isWorking = false }
+        let cleanEmail = email.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         do {
-            _ = try await Auth.auth().signIn(withEmail: email, password: password)
+            _ = try await Auth.auth().signIn(withEmail: cleanEmail, password: password)
             isLoggedIn = true
         } catch {
-            errorMsg = (error as NSError).localizedDescription
+            errorMsg = AuthErrorMessage.friendly(error)
         }
     }
 }
@@ -148,7 +149,7 @@ struct GoogleSignInRow: View {
             _ = try await GoogleAuth.signIn()
             isLoggedIn = true
         } catch {
-            errorMsg = (error as NSError).localizedDescription
+            errorMsg = AuthErrorMessage.friendly(error)
         }
     }
 }

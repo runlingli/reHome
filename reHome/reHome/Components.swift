@@ -463,11 +463,15 @@ struct AuthField: View {
             Group {
                 if isSecure {
                     SecureField(placeholder, text: $text)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .textContentType(label.lowercased().contains("confirm") ? .newPassword : .password)
                 } else {
                     TextField(placeholder, text: $text)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(label.lowercased().contains("email") ? .emailAddress : .default)
+                        .textContentType(label.lowercased().contains("email") ? .emailAddress : .name)
                 }
             }
             .font(.system(size: 15))
