@@ -1,6 +1,7 @@
 import SwiftUI
 import FirebaseAuth
 import FirebaseFirestore
+import FirebaseStorage
 
 struct RegisterScreen: View {
     @Binding var isLoggedIn: Bool
@@ -12,6 +13,8 @@ struct RegisterScreen: View {
     @State private var confirmPassword = ""
     @State private var errorMsg = ""
     @State private var isWorking = false
+    @State private var avatarAnimal: String?
+    @State private var avatarImage: UIImage?
 
     var body: some View {
         ZStack {
@@ -40,7 +43,10 @@ struct RegisterScreen: View {
                     Text("Create your student account")
                         .font(.system(size: 15))
                         .foregroundStyle(Theme.textMuted)
-                        .padding(.bottom, 36)
+                        .padding(.bottom, 28)
+
+                    AvatarPickerSection(selectedAnimal: $avatarAnimal, selectedImage: $avatarImage)
+                        .padding(.bottom, 28)
 
                     VStack(spacing: 14) {
                         AuthField(label: "Name",
@@ -141,7 +147,7 @@ struct RegisterScreen: View {
             // eduVerified starts false even for .edu — Firebase rules require the
             // email-verification link to be clicked first, then EmailVerification.promote()
             // flips it to true on the next app foreground.
-            try await Firestore.firestore().collection("users").document(uid).setData([
+            var userData: [String: Any] = [
                 "name":           name,
                 "handle":         "@" + (email.split(separator: "@").first.map(String.init) ?? "user"),
                 "school":         school,
@@ -153,7 +159,18 @@ struct RegisterScreen: View {
                 "eduVerified":    false,
                 "localVerified":  false,
                 "createdAt":      FieldValue.serverTimestamp(),
-            ])
+            ]
+
+            if let img = avatarImage, let data = img.jpegData(compressionQuality: 0.85) {
+                let ref = Storage.storage().reference().child("avatars/\(uid).jpg")
+                let meta = StorageMetadata(); meta.contentType = "image/jpeg"
+                _ = try await ref.putDataAsync(data, metadata: meta)
+                userData["avatarPhotoURL"] = try await ref.downloadURL().absoluteString
+            } else if let animal = avatarAnimal {
+                userData["avatarAnimal"] = animal
+            }
+
+            try await Firestore.firestore().collection("users").document(uid).setData(userData)
 
             // Send the verification email asynchronously; we don't block on it.
             try? await result.user.sendEmailVerification()

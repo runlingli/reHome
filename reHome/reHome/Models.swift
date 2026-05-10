@@ -76,6 +76,8 @@ struct SellerProfile: Identifiable, Hashable {
     let bio: String
     let avatarColor: Color
     let avatarInitials: String
+    var avatarAnimal: String?    // SF Symbol name; nil → hash-based random
+    var avatarPhotoURL: String?  // Firebase Storage download URL
 }
 
 struct Conversation: Identifiable, Hashable {

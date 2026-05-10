@@ -69,12 +69,12 @@ struct ListingPhoto: View {
     }
 }
 
-// MARK: - Avatar (animal icon, deterministic from user id)
+// MARK: - Avatar (custom photo, chosen animal, or hash-based random animal)
 struct AvatarView: View {
     let user: SellerProfile
     var size: CGFloat = 36
 
-    private static let animalPool: [(symbol: String, bg: String, fg: String)] = [
+    static let animalPool: [(symbol: String, bg: String, fg: String)] = [
         ("hare.fill",     "E8E0D4", "8A7560"),
         ("tortoise.fill", "D4E8D8", "4A7A5A"),
         ("bird.fill",     "D4E0F0", "4A6A9A"),
@@ -85,23 +85,178 @@ struct AvatarView: View {
         ("ladybug.fill",  "F0D4D4", "9A3A3A"),
     ]
 
-    private var animal: (symbol: String, bg: String, fg: String) {
-        Self.animalPool[abs(user.id.hashValue) % Self.animalPool.count]
+    private var resolvedAnimal: (symbol: String, bg: String, fg: String) {
+        if let sym = user.avatarAnimal,
+           let entry = Self.animalPool.first(where: { $0.symbol == sym }) { return entry }
+        return Self.animalPool[abs(user.id.hashValue) % Self.animalPool.count]
     }
 
     var body: some View {
         ZStack {
-            Circle().fill(Color(hex: animal.bg))
-            Image(systemName: animal.symbol)
-                .resizable()
-                .scaledToFit()
-                .foregroundStyle(Color(hex: animal.fg))
-                .padding(size * 0.22)
+            if let urlStr = user.avatarPhotoURL, let url = URL(string: urlStr) {
+                AsyncImage(url: url) { phase in
+                    if case .success(let img) = phase {
+                        img.resizable().scaledToFill()
+                    } else {
+                        animalLayer
+                    }
+                }
+            } else {
+                animalLayer
+            }
         }
         .frame(width: size, height: size)
-        .overlay(
-            Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
-        )
+        .clipShape(Circle())
+        .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+    }
+
+    private var animalLayer: some View {
+        ZStack {
+            Color(hex: resolvedAnimal.bg)
+            Image(systemName: resolvedAnimal.symbol)
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color(hex: resolvedAnimal.fg))
+                .padding(size * 0.22)
+        }
+    }
+}
+
+// MARK: - Cropping image picker (square crop via UIImagePickerController)
+struct CroppingImagePicker: UIViewControllerRepresentable {
+    @Binding var image: UIImage?
+    @Environment(\.dismiss) private var dismiss
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .photoLibrary
+        picker.allowsEditing = true
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+        let parent: CroppingImagePicker
+        init(_ parent: CroppingImagePicker) { self.parent = parent }
+
+        func imagePickerController(_ picker: UIImagePickerController,
+                                   didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+            parent.image = (info[.editedImage] ?? info[.originalImage]) as? UIImage
+            parent.dismiss()
+        }
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) { parent.dismiss() }
+    }
+}
+
+// MARK: - Avatar picker (used in RegisterScreen)
+struct AvatarPickerSection: View {
+    @Binding var selectedAnimal: String?
+    @Binding var selectedImage: UIImage?
+    @State private var showPicker = false
+
+    private var imageBinding: Binding<UIImage?> {
+        Binding(get: { selectedImage },
+                set: { img in selectedImage = img; if img != nil { selectedAnimal = nil } })
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            avatarPreview.frame(width: 72, height: 72)
+
+            Text("CHOOSE YOUR AVATAR")
+                .font(.system(size: 10, weight: .semibold, design: .monospaced))
+                .tracking(1.2)
+                .foregroundStyle(Theme.textFaint)
+
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 4), spacing: 8) {
+                ForEach(AvatarView.animalPool, id: \.symbol) { animal in
+                    let isSelected = selectedAnimal == animal.symbol && selectedImage == nil
+                    Button {
+                        selectedAnimal = animal.symbol
+                        selectedImage = nil
+                    } label: {
+                        ZStack {
+                            Circle().fill(Color(hex: animal.bg))
+                            Image(systemName: animal.symbol)
+                                .resizable()
+                                .scaledToFit()
+                                .foregroundStyle(Color(hex: animal.fg))
+                                .padding(10)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .aspectRatio(1, contentMode: .fit)
+                        .clipShape(Circle())
+                        .overlay(Circle().strokeBorder(isSelected ? Theme.accent : Color.clear, lineWidth: 2.5))
+                    }
+                    .buttonStyle(.plain)
+                    .animation(.easeOut(duration: 0.12), value: isSelected)
+                }
+            }
+
+            Button { showPicker = true } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: "photo.on.rectangle").font(.system(size: 13))
+                    Text(selectedImage != nil ? "Change photo" : "Choose from library")
+                        .font(.system(size: 14, weight: .medium))
+                }
+                .foregroundStyle(selectedImage != nil ? Theme.accent : Theme.textMuted)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 11)
+                .background(
+                    RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                        .fill(Theme.surface)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                                .strokeBorder(selectedImage != nil ? Theme.accent : Theme.border, lineWidth: 0.75)
+                        )
+                )
+            }
+            .buttonStyle(.plain)
+            .sheet(isPresented: $showPicker) {
+                CroppingImagePicker(image: imageBinding).ignoresSafeArea()
+            }
+
+            Text("Skip to get a random animal")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textFaint)
+        }
+    }
+
+    @ViewBuilder
+    private var avatarPreview: some View {
+        if let img = selectedImage {
+            Image(uiImage: img)
+                .resizable().scaledToFill()
+                .frame(width: 72, height: 72)
+                .clipShape(Circle())
+                .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        } else if let sym = selectedAnimal,
+                  let a = AvatarView.animalPool.first(where: { $0.symbol == sym }) {
+            ZStack {
+                Circle().fill(Color(hex: a.bg))
+                Image(systemName: a.symbol)
+                    .resizable().scaledToFit()
+                    .foregroundStyle(Color(hex: a.fg))
+                    .padding(72 * 0.22)
+            }
+            .frame(width: 72, height: 72)
+            .clipShape(Circle())
+            .overlay(Circle().strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5))
+        } else {
+            ZStack {
+                Circle()
+                    .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [5, 3]))
+                    .foregroundStyle(Theme.border)
+                Image(systemName: "pawprint")
+                    .font(.system(size: 24, weight: .light))
+                    .foregroundStyle(Theme.textFaint)
+            }
+            .frame(width: 72, height: 72)
+        }
     }
 }
 
