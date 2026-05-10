@@ -51,6 +51,8 @@ async function _refresh_once(): Promise<boolean> {
   }
 }
 
+const TIMEOUT_MS = 10_000
+
 async function req<T>(
   method: string,
   path: string,
@@ -60,11 +62,24 @@ async function req<T>(
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   if (_access) headers['Authorization'] = `Bearer ${_access}`
 
-  const res = await fetch(`${BASE}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  let res: Response
+  try {
+    res = await fetch(`${BASE}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    })
+  } catch (e) {
+    clearTimeout(timer)
+    if (e instanceof DOMException && e.name === 'AbortError')
+      throw new ApiError('TIMEOUT', 'Request timed out. Check your connection or try again.')
+    throw e
+  }
+  clearTimeout(timer)
 
   if (res.status === 204) return undefined as T
 

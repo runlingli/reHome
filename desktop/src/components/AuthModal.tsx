@@ -30,12 +30,13 @@ function friendlyError(e: unknown): string {
       EMAIL_TAKEN:       'An account with this email already exists. Try logging in.',
       WRONG_PASSWORD:    'Incorrect password. Please try again.',
       TOKEN_EXPIRED:     'Your session expired. Please log in again.',
+      TIMEOUT:           'The server took too long to respond. The backend may not be running yet.',
     }
     return map[e.code] ?? e.message
   }
   if (e instanceof TypeError) {
-    // Network / CORS error (backend not live yet)
-    return 'Could not reach the server. Please try again later.'
+    // Network error or CORS block
+    return 'Could not reach the server — this is likely a CORS configuration issue or the backend is not deployed yet.'
   }
   return 'Something went wrong. Please try again.'
 }
