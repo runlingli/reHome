@@ -3,6 +3,8 @@ import PhotosUI
 import FirebaseAuth
 
 struct PublishScreen: View {
+    var initialDraft: DraftData? = nil
+
     @Environment(\.dismiss) private var dismiss
     @State private var step = 1
     @State private var showSaveSheet = false
@@ -97,11 +99,30 @@ struct PublishScreen: View {
         .background(Theme.bg.ignoresSafeArea())
         .navigationBarBackButtonHidden(true)
         .confirmationDialog("Save your draft?", isPresented: $showSaveSheet, titleVisibility: .visible) {
-            Button("Save Draft") { dismiss() }
+            Button("Save Draft") {
+                DraftStore.append(DraftData(
+                    title: title,
+                    category: category,
+                    condition: condition?.rawValue ?? "",
+                    age: ageOption,
+                    pickup: pickupWindow,
+                    notes: descriptionText
+                ))
+                dismiss()
+            }
             Button("Don't Save", role: .destructive) { dismiss() }
             Button("Continue Editing", role: .cancel) {}
         } message: {
             Text("You've added details. We can save this as a draft so you can finish later.")
+        }
+        .onAppear {
+            guard let d = initialDraft else { return }
+            title = d.title
+            descriptionText = d.notes
+            category = d.category
+            if let c = ItemCondition(rawValue: d.condition) { condition = c }
+            ageOption = d.age
+            pickupWindow = d.pickup
         }
     }
 

@@ -25,7 +25,7 @@ struct ContentView: View {
                 }
                 .tag(1)
 
-            ProfileScreen()
+            ProfileScreen(savedSet: $savedSet)
                 .tabItem {
                     Label("Profile", systemImage: selectedTab == 2 ? "person.fill" : "person")
                 }
