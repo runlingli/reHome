@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useStore } from '../store'
-import type { ProfileTab } from '../store'
-import { USERS } from '../data'
+import type { ProfileTab, PostDraft } from '../store'
+import { USERS, CATEGORIES } from '../data'
 import { Overlay, ItemImage, Avatar, VerifiedBadge, Icon, T, ACCENT, ACCENT_SOFT, EDU, LOCAL } from './ui'
 import { ItemCard } from './Feed'
 
 export function Profile() {
-  const { overlay, closeOverlay, role, openItem, openMessages, savedIds, toggleSave, profileInitialTab,
-          listings, currentUser } = useStore()
+  const { overlay, closeOverlay, role, openItem, openMessages, savedIds, savedItemCache, toggleSave,
+          profileInitialTab, listings, currentUser, drafts, deleteDraft, clearInvalidSaved,
+          openPostFromDraft, openPost } = useStore()
   if (overlay.kind !== 'profile') return null
 
   // Use the live Firebase profile when signed in, otherwise the mock fallback
@@ -30,7 +31,8 @@ export function Profile() {
   // When unauthenticated, fall back to demo seller u_emma so the UI isn't empty.
   const sellerUid = currentUser?.id ?? 'u_emma'
   const myItems = listings.filter(i => i.seller === sellerUid).slice(0, 4)
-  const savedItems = listings.filter(i => savedIds.has(i.id))
+  const savedItemIds = [...savedIds]
+  const hasInvalidSaved = savedItemIds.some(id => !listings.some(i => i.id === id))
 
   const [tab, setTab] = useState<ProfileTab>(profileInitialTab)
   const [verifyModal, setVerifyModal] = useState<'edu' | 'local' | null>(null)
@@ -39,6 +41,7 @@ export function Profile() {
   const TABS: { key: ProfileTab; label: string }[] = [
     { key: 'listings',      label: 'My listings' },
     { key: 'saved',         label: 'Saved' },
+    { key: 'drafts',        label: 'Drafts' },
     { key: 'history',       label: 'History' },
     { key: 'verifications', label: 'Verifications' },
   ]
@@ -83,9 +86,14 @@ export function Profile() {
             color: tab === key ? T.text : T.textMuted,
           }}>
             {label}
-            {key === 'saved' && savedItems.length > 0 && (
+            {key === 'saved' && savedIds.size > 0 && (
               <span style={{ marginLeft: 6, fontSize: 11, background: T.surfaceAlt, color: T.textMuted, padding: '1px 6px', borderRadius: 999 }}>
-                {savedItems.length}
+                {savedIds.size}
+              </span>
+            )}
+            {key === 'drafts' && drafts.length > 0 && (
+              <span style={{ marginLeft: 6, fontSize: 11, background: T.surfaceAlt, color: T.textMuted, padding: '1px 6px', borderRadius: 999 }}>
+                {drafts.length}
               </span>
             )}
           </button>
@@ -106,11 +114,45 @@ export function Profile() {
 
         {/* ── Saved ── */}
         {tab === 'saved' && (
-          savedItems.length > 0
-            ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
-                {savedItems.map(it => <ItemCard key={it.id} item={it} onOpen={() => openItem(it.id)} savedIds={savedIds} onSave={toggleSave} />)}
+          <div>
+            {savedItemIds.length > 0 && hasInvalidSaved && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                <button
+                  onClick={clearInvalidSaved}
+                  style={{ padding: '6px 14px', background: 'transparent', border: '1px solid ' + T.border, borderRadius: 999, cursor: 'pointer', fontSize: 11, fontWeight: 600, color: T.textMuted }}
+                >
+                  清除失效物品
+                </button>
               </div>
-            : <EmptyState icon="🤍" title="Nothing saved yet" sub="Tap the heart on any item to save it here." />
+            )}
+            {savedItemIds.length > 0
+              ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
+                  {savedItemIds.map(id => {
+                    const item = savedItemCache[id] ?? listings.find(i => i.id === id)
+                    if (!item) return null
+                    const sold = !listings.some(i => i.id === id)
+                    return <SavedItemCard key={id} item={item} sold={sold} onOpen={() => openItem(id)} onRemove={() => toggleSave(id)} savedIds={savedIds} onSave={toggleSave} />
+                  })}
+                </div>
+              : <EmptyState icon="🤍" title="Nothing saved yet" sub="Tap the heart on any item to save it here." />
+            }
+          </div>
+        )}
+
+        {/* ── Drafts ── */}
+        {tab === 'drafts' && (
+          drafts.length > 0
+            ? <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxWidth: 780 }}>
+                {drafts.map((draft, idx) => (
+                  <DraftRow
+                    key={idx}
+                    draft={draft}
+                    onOpen={() => { closeOverlay(); setTimeout(() => openPostFromDraft(idx), 80) }}
+                    onDelete={() => deleteDraft(idx)}
+                  />
+                ))}
+              </div>
+            : <EmptyState icon="📝" title="No drafts" sub="Start a listing and choose "Save draft" when you exit to continue later." action={{ label: 'New listing', onClick: openPost }} />
         )}
 
         {/* ── History ── */}
@@ -362,6 +404,80 @@ function VerifyFlowModal({ kind, onClose }: { kind: 'edu' | 'local'; onClose: ()
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function SavedItemCard({ item, sold, onOpen, onRemove, savedIds, onSave }: {
+  item: import('../types').Item
+  sold: boolean
+  onOpen: () => void
+  onRemove: () => void
+  savedIds: Set<string>
+  onSave: (id: string) => void
+}) {
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [showConfirm, setShowConfirm] = useState(false)
+
+  const startHold = () => {
+    timerRef.current = setTimeout(() => setShowConfirm(true), 600)
+  }
+  const endHold = () => {
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
+  }
+
+  return (
+    <div style={{ position: 'relative' }} onMouseDown={startHold} onMouseUp={endHold} onMouseLeave={endHold}>
+      <div style={{ opacity: sold ? 0.65 : 1, pointerEvents: sold ? 'none' : 'auto' }}>
+        <ItemCard item={item} onOpen={onOpen} savedIds={savedIds} onSave={onSave} />
+      </div>
+      {sold && (
+        <div style={{ position: 'absolute', inset: 0, borderRadius: 16, background: 'rgba(0,0,0,0.32)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+          <div style={{ background: 'rgba(0,0,0,0.72)', padding: '5px 14px', borderRadius: 999, color: '#fff', fontSize: 13, fontWeight: 700, letterSpacing: 0.3 }}>已售出</div>
+        </div>
+      )}
+      {showConfirm && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(15,14,12,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowConfirm(false)}>
+          <div style={{ background: T.surface, borderRadius: 16, padding: 24, width: 320 }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>Remove from saved?</div>
+            <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 20, lineHeight: 1.5 }}>{item.title}</div>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+              <button onClick={() => setShowConfirm(false)} style={{ padding: '9px 14px', background: 'transparent', border: '1px solid ' + T.border, borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Cancel</button>
+              <button onClick={() => { onRemove(); setShowConfirm(false) }} style={{ padding: '9px 14px', background: T.text, color: T.bg, border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DraftRow({ draft, onOpen, onDelete }: { draft: PostDraft; onOpen: () => void; onDelete: () => void }) {
+  const catLabel = CATEGORIES.find(c => c.id === draft.cat)?.en ?? draft.cat ?? 'Item'
+  const sec = (Date.now() - new Date(draft.savedAt).getTime()) / 1000
+  const ago = sec < 3600 ? `${Math.max(1, Math.floor(sec / 60))}m ago`
+    : sec < 86400 ? `${Math.floor(sec / 3600)}h ago`
+    : `${Math.floor(sec / 86400)}d ago`
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 14, background: T.surface, borderRadius: 14, border: '0.75px solid ' + T.border, padding: '16px 18px' }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {draft.title || 'Untitled listing'}
+        </div>
+        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 5, display: 'flex', gap: 8, alignItems: 'center' }}>
+          {draft.cat && (
+            <span style={{ padding: '2px 8px', borderRadius: 999, background: T.surfaceAlt, fontWeight: 600 }}>{catLabel}</span>
+          )}
+          <span style={{ fontFamily: '"JetBrains Mono", monospace' }}>{ago}</span>
+        </div>
+      </div>
+      <button onClick={onDelete} style={{ width: 30, height: 30, borderRadius: 999, background: 'transparent', border: '0.75px solid ' + T.border, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+        <Icon name="close" size={13} color={T.textMuted} />
+      </button>
+      <button onClick={onOpen} style={{ padding: '9px 18px', background: T.text, color: T.bg, border: 'none', borderRadius: 999, cursor: 'pointer', fontSize: 13, fontWeight: 600, flexShrink: 0 }}>
+        Continue
+      </button>
     </div>
   )
 }

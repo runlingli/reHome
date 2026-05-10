@@ -7,7 +7,18 @@ import { ITEMS as MOCK_ITEMS, USERS as MOCK_USERS } from './data'
 import { users as apiUsers, clearTokens } from './api'
 import type { OverlayState, Item, User, Conversation } from './types'
 
-export type ProfileTab = 'listings' | 'saved' | 'history' | 'verifications'
+export type ProfileTab = 'listings' | 'saved' | 'drafts' | 'history' | 'verifications'
+
+export interface PostDraft {
+  photos: number
+  title: string
+  cat: string
+  condition: string
+  age: string
+  pickup: string
+  notes: string
+  savedAt: string
+}
 
 export interface AuthUser {
   id?: string
@@ -28,6 +39,8 @@ interface AppState {
   when: string
   role: 'student' | 'local'
   savedIds: Set<string>
+  savedItemCache: Record<string, Item>
+  drafts: PostDraft[]
   overlay: OverlayState
   profileInitialTab: ProfileTab
 
@@ -58,6 +71,7 @@ interface AppState {
   openProfile: () => void
   openProfileTab: (tab: ProfileTab) => void
   openPost: () => void
+  openPostFromDraft: (draftIdx: number) => void
   closeOverlay: () => void
 
   openAuth: (mode?: 'login' | 'signup') => void
@@ -65,6 +79,11 @@ interface AppState {
   signIn: (user: AuthUser) => void
   signOut: () => void
   initSession: () => Promise<void>
+
+  saveDraft: (draft: Omit<PostDraft, 'savedAt'>) => void
+  updateDraft: (idx: number, draft: Omit<PostDraft, 'savedAt'>) => void
+  deleteDraft: (idx: number) => void
+  clearInvalidSaved: () => void
 
   openNotif: () => void
   closeNotif: () => void
@@ -78,6 +97,10 @@ export const useStore = create<AppState>((set, get) => ({
   when: '',
   role: 'student',
   savedIds: new Set(['i3', 'i12']),
+  savedItemCache: Object.fromEntries(
+    MOCK_ITEMS.filter(i => i.id === 'i3' || i.id === 'i12').map(i => [i.id, i])
+  ) as Record<string, Item>,
+  drafts: [],
   overlay: { kind: null },
   profileInitialTab: 'listings',
 
@@ -101,8 +124,15 @@ export const useStore = create<AppState>((set, get) => ({
   toggleSave: (id) =>
     set((s) => {
       const next = new Set(s.savedIds)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return { savedIds: next }
+      const cacheNext = { ...s.savedItemCache }
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+        const item = s.listings.find(i => i.id === id)
+        if (item) cacheNext[id] = item
+      }
+      return { savedIds: next, savedItemCache: cacheNext }
     }),
 
   openItem: (itemId) => set({ overlay: { kind: 'item', itemId } }),
@@ -110,6 +140,7 @@ export const useStore = create<AppState>((set, get) => ({
   openProfile: () => set({ profileInitialTab: 'listings', overlay: { kind: 'profile' } }),
   openProfileTab: (tab) => set({ profileInitialTab: tab, overlay: { kind: 'profile' } }),
   openPost: () => set({ overlay: { kind: 'post' } }),
+  openPostFromDraft: (draftIdx) => set({ overlay: { kind: 'post', draftIdx } }),
   closeOverlay: () => set({ overlay: { kind: null } }),
 
   openAuth: (mode = 'signup') => set({ authOpen: true, authMode: mode }),
@@ -207,6 +238,25 @@ export const useStore = create<AppState>((set, get) => ({
       }
     })
   },
+
+  saveDraft: (draft) =>
+    set((s) => ({ drafts: [...s.drafts, { ...draft, savedAt: new Date().toISOString() }] })),
+  updateDraft: (idx, draft) =>
+    set((s) => {
+      const next = [...s.drafts]
+      next[idx] = { ...draft, savedAt: new Date().toISOString() }
+      return { drafts: next }
+    }),
+  deleteDraft: (idx) =>
+    set((s) => ({ drafts: s.drafts.filter((_, i) => i !== idx) })),
+  clearInvalidSaved: () =>
+    set((s) => {
+      const liveIds = new Set(s.listings.map(i => i.id))
+      const validIds = new Set([...s.savedIds].filter(id => liveIds.has(id)))
+      const validCache: Record<string, Item> = {}
+      validIds.forEach(id => { if (s.savedItemCache[id]) validCache[id] = s.savedItemCache[id] })
+      return { savedIds: validIds, savedItemCache: validCache }
+    }),
 
   openNotif: () => set({ notifOpen: true }),
   closeNotif: () => set({ notifOpen: false }),

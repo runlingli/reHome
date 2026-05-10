@@ -31,15 +31,23 @@ interface PostData {
 const STEPS = ['Photos & title', 'Category & condition', 'Pickup window', 'Estimated value & post']
 
 export function PostFlow() {
-  const { overlay, closeOverlay } = useStore()
+  const { overlay, closeOverlay, drafts } = useStore()
   if (overlay.kind !== 'post') return null
-
-  return <PostFlowInner onClose={closeOverlay} />
+  const draftIdx = overlay.draftIdx
+  const initialDraft = draftIdx !== undefined ? drafts[draftIdx] : undefined
+  return <PostFlowInner onClose={closeOverlay} initialDraft={initialDraft} draftIdx={draftIdx} />
 }
 
-function PostFlowInner({ onClose }: { onClose: () => void }) {
+function PostFlowInner({ onClose, initialDraft, draftIdx }: {
+  onClose: () => void
+  initialDraft?: PostData
+  draftIdx?: number
+}) {
+  const { saveDraft, updateDraft, deleteDraft } = useStore()
   const [step, setStep] = useState(1)
-  const [data, setData] = useState<PostData>({ photos: 0, title: '', cat: '', condition: 'excellent', age: '1 yr', pickup: 'Mid-May', notes: '' })
+  const [data, setData] = useState<PostData>(
+    initialDraft ?? { photos: 0, title: '', cat: '', condition: 'excellent', age: '1 yr', pickup: 'Mid-May', notes: '' }
+  )
   const [askSave, setAskSave] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
@@ -60,6 +68,7 @@ function PostFlowInner({ onClose }: { onClose: () => void }) {
         desc:      data.notes,
         location:  '',
       })
+      if (draftIdx !== undefined) deleteDraft(draftIdx)
       onClose()
     } catch (e) {
       setPublishError((e as Error).message)
@@ -140,7 +149,12 @@ function PostFlowInner({ onClose }: { onClose: () => void }) {
 
       {askSave && (
         <SaveDraftDialog
-          onKeep={() => { setAskSave(false); onClose() }}
+          onKeep={() => {
+            if (draftIdx !== undefined) updateDraft(draftIdx, data)
+            else saveDraft(data)
+            setAskSave(false)
+            onClose()
+          }}
           onDiscard={() => { setAskSave(false); onClose() }}
           onCancel={() => setAskSave(false)}
         />

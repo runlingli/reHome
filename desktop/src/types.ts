@@ -72,5 +72,6 @@ export interface OverlayState {
   kind: OverlayKind
   itemId?: string
   withUser?: string
-  listingId?: string   // item being discussed when opening messages
+  listingId?: string
+  draftIdx?: number
 }
