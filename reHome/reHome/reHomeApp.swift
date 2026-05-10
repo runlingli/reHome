@@ -40,12 +40,22 @@ struct reHomeApp: App {
 
 struct RootView: View {
     @AppStorage("isLoggedIn") private var isLoggedIn = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        if isLoggedIn {
-            ContentView()
-        } else {
-            LoginScreen(isLoggedIn: $isLoggedIn)
+        Group {
+            if isLoggedIn {
+                ContentView()
+            } else {
+                LoginScreen(isLoggedIn: $isLoggedIn)
+            }
+        }
+        // Promote eduVerified→true the moment we detect a verified .edu email
+        // (covers: cold launch, returning to foreground after clicking the link).
+        .task(id: scenePhase) {
+            if scenePhase == .active, isLoggedIn {
+                await EmailVerification.promoteIfReady()
+            }
         }
     }
 }

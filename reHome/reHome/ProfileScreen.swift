@@ -152,7 +152,16 @@ struct ProfileScreen: View {
     }
 
     // MARK: - Verification card (.edu Verified large badge)
+    @ViewBuilder
     private var verificationCard: some View {
+        if EmailVerification.needsVerification {
+            unverifiedCard
+        } else {
+            verifiedCard
+        }
+    }
+
+    private var verifiedCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Image(systemName: "checkmark.seal.fill")
@@ -162,9 +171,11 @@ struct ProfileScreen: View {
                     Text(".edu Verified")
                         .font(.system(size: 15, weight: .semibold))
                         .foregroundStyle(Theme.eduColor)
-                    Text("you@bu.edu · verified Apr 18")
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(Theme.eduColor.opacity(0.8))
+                    if let e = Auth.auth().currentUser?.email {
+                        Text(e)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(Theme.eduColor.opacity(0.8))
+                    }
                 }
                 Spacer()
             }
@@ -180,15 +191,85 @@ struct ProfileScreen: View {
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
-                .background(
-                    Capsule().strokeBorder(Theme.border, lineWidth: 1)
-                )
+                .background(Capsule().strokeBorder(Theme.border, lineWidth: 1))
                 .foregroundStyle(Theme.text)
             }
         }
         .padding(14)
         .background(Theme.eduBg.opacity(0.55))
         .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+    }
+
+    @State private var verifyState: VerifyAction = .idle
+    private enum VerifyAction { case idle, sending, sentOK, error(String) }
+
+    private var unverifiedCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "envelope.badge")
+                    .font(.system(size: 24))
+                    .foregroundStyle(Theme.accent)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Verify your email")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(Theme.text)
+                    if let e = Auth.auth().currentUser?.email {
+                        Text("Check \(e) — click the link to unlock posting.")
+                            .font(.system(size: 12))
+                            .foregroundStyle(Theme.textMuted)
+                            .lineSpacing(2)
+                    }
+                }
+                Spacer()
+            }
+
+            HStack(spacing: 8) {
+                Button {
+                    Task {
+                        await EmailVerification.promoteIfReady()
+                        verifyState = .idle
+                    }
+                } label: {
+                    Text("I've verified")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 12).padding(.vertical, 8)
+                        .background(Capsule().fill(Theme.text))
+                        .foregroundStyle(Theme.bg)
+                }
+                Button {
+                    Task {
+                        verifyState = .sending
+                        do { try await EmailVerification.resend(); verifyState = .sentOK }
+                        catch { verifyState = .error((error as NSError).localizedDescription) }
+                    }
+                } label: {
+                    HStack(spacing: 4) {
+                        if case .sending = verifyState { ProgressView().scaleEffect(0.7) }
+                        Text(resendLabel)
+                            .font(.system(size: 13, weight: .semibold))
+                    }
+                    .padding(.horizontal, 12).padding(.vertical, 8)
+                    .background(Capsule().strokeBorder(Theme.border, lineWidth: 1))
+                    .foregroundStyle(Theme.text)
+                }
+                Spacer()
+            }
+
+            if case .error(let msg) = verifyState {
+                Text(msg).font(.system(size: 11)).foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(14)
+        .background(Theme.accentSoft.opacity(0.55))
+        .clipShape(RoundedRectangle(cornerRadius: Radius.lg, style: .continuous))
+    }
+
+    private var resendLabel: String {
+        switch verifyState {
+        case .idle, .error:        return "Resend email"
+        case .sending:             return "Sending…"
+        case .sentOK:              return "Sent ✓"
+        }
     }
 
     private var quickLinks: some View {

@@ -130,14 +130,17 @@ struct RegisterScreen: View {
         do {
             let result = try await Auth.auth().createUser(withEmail: email, password: password)
             let uid = result.user.uid
-            let isEdu = email.lowercased().hasSuffix(".edu")
             let initials = name.split(separator: " ").prefix(2)
                 .compactMap { $0.first }.map(String.init).joined().uppercased()
+            let isEdu = email.lowercased().hasSuffix(".edu")
             let school = isEdu
                 ? (email.split(separator: "@").last.map(String.init) ?? "")
                     .replacingOccurrences(of: ".edu", with: "").uppercased()
                 : ""
 
+            // eduVerified starts false even for .edu — Firebase rules require the
+            // email-verification link to be clicked first, then EmailVerification.promote()
+            // flips it to true on the next app foreground.
             try await Firestore.firestore().collection("users").document(uid).setData([
                 "name":           name,
                 "handle":         "@" + (email.split(separator: "@").first.map(String.init) ?? "user"),
@@ -147,10 +150,14 @@ struct RegisterScreen: View {
                 "avatarInitials": initials.isEmpty ? "U" : initials,
                 "rating":         5.0,
                 "deals":          0,
-                "eduVerified":    isEdu,
+                "eduVerified":    false,
                 "localVerified":  false,
                 "createdAt":      FieldValue.serverTimestamp(),
             ])
+
+            // Send the verification email asynchronously; we don't block on it.
+            try? await result.user.sendEmailVerification()
+
             isLoggedIn = true
         } catch {
             errorMsg = (error as NSError).localizedDescription

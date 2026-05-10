@@ -40,17 +40,37 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn();
 
-      // Create: must be self; eduVerified must equal the .edu email check;
-      // localVerified must start false.
+      // Create: must be self.
+      // eduVerified can only be true at create time if the .edu email is *already*
+      // verified by Firebase — true for OAuth providers (Google) and false for
+      // password sign-ups (which trigger a verification email and promote later).
+      // localVerified must start false (server-set later by a Cloud Function).
       allow create: if isSelf(uid)
-                    && request.resource.data.eduVerified == isEduEmail()
+                    && (request.resource.data.eduVerified == false
+                        || (isEduEmail()
+                            && request.auth.token.email_verified == true))
                     && request.resource.data.localVerified == false;
 
-      // Update: owner only; verification flags cannot be self-mutated after create.
+      // Update: owner only.
+      // Verification flags can flip in exactly one direction with strict guards:
+      //   eduVerified  : false → true if the auth email ends in .edu AND
+      //                  Firebase says the email is verified (token refreshed
+      //                  after the user clicks the verification link).
+      //   localVerified: never client-mutable (Cloud Function only).
       allow update: if isSelf(uid)
-                    && !(request.resource.data.diff(resource.data)
-                          .affectedKeys()
-                          .hasAny(['eduVerified','localVerified']));
+                    && (
+                         // No verification-flag diff — normal profile edits.
+                         !(request.resource.data.diff(resource.data)
+                            .affectedKeys()
+                            .hasAny(['eduVerified','localVerified']))
+                       ||
+                         // Or: promoting eduVerified from false → true under guards.
+                         (request.resource.data.eduVerified == true
+                          && resource.data.eduVerified == false
+                          && resource.data.localVerified == request.resource.data.localVerified
+                          && isEduEmail()
+                          && request.auth.token.email_verified == true)
+                       );
 
       allow delete: if false;
     }
