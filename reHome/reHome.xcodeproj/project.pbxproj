@@ -19,7 +19,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		395AED502FAFE84600A3BDC2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+		395AED502FAFE84600A3BDC2 /* Exceptions for "reHome" folder in "reHome" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
@@ -32,7 +32,7 @@
 		395AED442FAFE84500A3BDC1 /* reHome */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				395AED502FAFE84600A3BDC2 /* PBXFileSystemSynchronizedBuildFileExceptionSet */,
+				395AED502FAFE84600A3BDC2 /* Exceptions for "reHome" folder in "reHome" target */,
 			);
 			path = reHome;
 			sourceTree = "<group>";

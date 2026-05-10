@@ -2,6 +2,7 @@ import SwiftUI
 
 struct MessagesScreen: View {
     @State private var query = ""
+    @State private var selectedConversation: Conversation?
 
     private var filtered: [Conversation] {
         guard !query.isEmpty else { return MockData.conversations }
@@ -36,7 +37,10 @@ struct MessagesScreen: View {
                 } else {
                     LazyVStack(spacing: 0) {
                         ForEach(filtered) { c in
-                            ConversationRow(conversation: c, highlight: query)
+                            Button { selectedConversation = c } label: {
+                                ConversationRow(conversation: c, highlight: query)
+                            }
+                            .buttonStyle(.plain)
                             Divider()
                                 .background(Theme.borderSubtle)
                                 .padding(.leading, 78)
@@ -47,6 +51,9 @@ struct MessagesScreen: View {
             }
         }
         .background(Theme.bg.ignoresSafeArea())
+        .sheet(item: $selectedConversation) { c in
+            ChatDetailScreen(conversation: c)
+        }
     }
 
     private var searchBar: some View {
