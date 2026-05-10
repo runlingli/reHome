@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 import CoreLocation
 
 /// One-shot location capture used during registration.
