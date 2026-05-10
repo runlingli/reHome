@@ -89,7 +89,7 @@ final class FirestoreService: ObservableObject {
         messagesListener?.remove()
         messagesListener = db.collection("conversations").document(convId)
             .collection("messages")
-            .order(by: "createdAt", ascending: true)
+            .order(by: "createdAt", descending: false)
             .addSnapshotListener { [weak self] snap, err in
                 Task { @MainActor [weak self] in
                     guard let self else { return }
