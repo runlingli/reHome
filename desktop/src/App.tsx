@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useStore } from './store'
 import { Header } from './components/Header'
 import { HeroBand } from './components/HeroBand'
@@ -14,8 +14,13 @@ import { NotifPanel } from './components/NotifPanel'
 export default function App() {
   const { overlay, closeOverlay, initSession } = useStore()
 
-  // Restore session from stored JWT on first load
-  useEffect(() => { initSession() }, [initSession])
+  // Guard against React 19 StrictMode double-invocation creating duplicate Firestore listeners.
+  const didInit = useRef(false)
+  useEffect(() => {
+    if (didInit.current) return
+    didInit.current = true
+    initSession()
+  }, [])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeOverlay() }
