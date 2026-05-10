@@ -228,6 +228,42 @@ export function AuthModal() {
           >
             {loading ? 'Please wait…' : tab === 'signup' ? 'Create account' : 'Log in'}
           </button>
+
+          {/* OR divider + Continue with Google */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '6px 0' }}>
+            <div style={{ flex: 1, height: 0.5, background: T.border }} />
+            <span style={{ fontSize: 11, color: T.textFaint, fontFamily: '"JetBrains Mono", monospace', letterSpacing: 1 }}>OR</span>
+            <div style={{ flex: 1, height: 0.5, background: T.border }} />
+          </div>
+          <button
+            onClick={async () => {
+              setError(''); setLoading(true)
+              try {
+                const res = await apiAuth.google()
+                setTokens(res.access_token, res.refresh_token)
+                signIn({
+                  id:             res.user.id,
+                  email:          res.user.email,
+                  name:           res.user.name,
+                  school:         res.user.school,
+                  handle:         res.user.handle,
+                  eduVerified:    res.user.edu_verified,
+                  localVerified:  res.user.local_verified,
+                  avatarInitials: res.user.avatar_initials,
+                  avatarColor:    res.user.avatar_color,
+                })
+              } catch (e) {
+                setError(friendlyError(e))
+              } finally {
+                setLoading(false)
+              }
+            }}
+            disabled={loading}
+            style={{ width: '100%', padding: '12px', background: T.bg, color: T.text, border: '1px solid ' + T.border, borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}
+          >
+            <span style={{ width: 18, height: 18, borderRadius: 9, background: '#4285F4', color: '#fff', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>G</span>
+            Continue with Google
+          </button>
         </div>
 
         {/* Footer switch */}

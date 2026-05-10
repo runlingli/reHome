@@ -1,6 +1,11 @@
 import { create } from 'zustand'
-import type { OverlayState } from './types'
-import { users as apiUsers, clearTokens, hasToken } from './api'
+import { onAuthStateChanged } from 'firebase/auth'
+import { auth as fbAuth } from './firebase'
+import { subscribeToListings, fetchUser, primeUser } from './listings'
+import { promoteEduIfReady } from './auth'
+import { USERS as MOCK_USERS } from './data'
+import { users as apiUsers, clearTokens } from './api'
+import type { OverlayState, Item, User } from './types'
 
 export type ProfileTab = 'listings' | 'saved' | 'history' | 'verifications'
 
@@ -32,6 +37,10 @@ interface AppState {
   currentUser: AuthUser | null
   sessionLoading: boolean
 
+  // Live data from Firestore
+  listings: Item[]
+  usersByUid: Record<string, User>
+
   // Notifications
   notifOpen: boolean
   notifPrefs: Set<string>
@@ -61,7 +70,7 @@ interface AppState {
   toggleNotifPref: (catId: string) => void
 }
 
-export const useStore = create<AppState>((set) => ({
+export const useStore = create<AppState>((set, get) => ({
   q: '',
   cat: 'all',
   loc: '',
@@ -75,6 +84,9 @@ export const useStore = create<AppState>((set) => ({
   authMode: 'signup',
   currentUser: null,
   sessionLoading: false,
+
+  listings: [],
+  usersByUid: { ...MOCK_USERS },
 
   notifOpen: false,
   notifPrefs: new Set(['furniture', 'appliance']),
@@ -102,46 +114,74 @@ export const useStore = create<AppState>((set) => ({
   closeAuth: () => set({ authOpen: false }),
 
   signIn: (user) => {
-    // Sync saved IDs from API if available
     set((s) => ({
       currentUser: user,
       authOpen: false,
-      // API returns saved_listing_ids on the user object after login
       savedIds: (user as { savedIds?: Set<string> }).savedIds ?? s.savedIds,
     }))
   },
 
-  signOut: async () => {
+  signOut: () => {
     clearTokens()
     set({ currentUser: null, overlay: { kind: null } })
   },
 
-  // Called once on app mount — restores session from stored token
+  /**
+   * Bootstrap Firebase auth subscription + Firestore listings stream.
+   * Called once from App.tsx on mount; safe to call multiple times because
+   * onAuthStateChanged returns a fresh listener each time, but we don't
+   * unsubscribe (lifetime = whole session).
+   */
   initSession: async () => {
-    if (!hasToken()) return
     set({ sessionLoading: true })
-    try {
-      const me = await apiUsers.me()
-      set({
-        currentUser: {
-          id: me.id,
-          email: me.email,
-          name: me.name,
-          school: me.school,
-          handle: me.handle,
-          eduVerified: me.edu_verified,
-          localVerified: me.local_verified,
-          avatarInitials: me.avatar_initials,
-          avatarColor: me.avatar_color,
-        },
-        savedIds: me.saved_listing_ids ? new Set(me.saved_listing_ids) : new Set(['i3', 'i12']),
-      })
-    } catch {
-      // Token invalid or expired — clear silently
-      clearTokens()
-    } finally {
-      set({ sessionLoading: false })
-    }
+
+    // Seed user cache with mock fallbacks (covers seeded sellers u_emma etc.).
+    Object.entries(MOCK_USERS).forEach(([uid, u]) => primeUser(uid, u))
+
+    // 1. Auth state — Firebase persists session in IndexedDB; this fires
+    //    immediately with current user (or null) and on any future change.
+    onAuthStateChanged(fbAuth, async (fbUser) => {
+      if (!fbUser) {
+        set({ currentUser: null, sessionLoading: false })
+        return
+      }
+      try {
+        const me = await apiUsers.me()
+        set({
+          currentUser: {
+            id:             me.id,
+            email:          me.email,
+            name:           me.name,
+            school:         me.school,
+            handle:         me.handle,
+            eduVerified:    me.edu_verified,
+            localVerified:  me.local_verified,
+            avatarInitials: me.avatar_initials,
+            avatarColor:    me.avatar_color,
+          },
+          sessionLoading: false,
+        })
+        promoteEduIfReady().catch(() => {})
+      } catch (err) {
+        console.error('[store] failed to load /me:', err)
+        set({ sessionLoading: false })
+      }
+    })
+
+    // 2. Listings stream — populate the feed in real time.
+    subscribeToListings(async (items) => {
+      set({ listings: items })
+      const known = get().usersByUid
+      const missing = Array.from(new Set(items.map(i => i.seller)))
+        .filter(uid => uid && !known[uid])
+      if (missing.length === 0) return
+      const fetched = await Promise.all(
+        missing.map(uid => fetchUser(uid).then(u => [uid, u] as const))
+      )
+      const updates: Record<string, User> = { ...get().usersByUid }
+      for (const [uid, u] of fetched) if (u) updates[uid] = u
+      set({ usersByUid: updates })
+    })
   },
 
   openNotif: () => set({ notifOpen: true }),

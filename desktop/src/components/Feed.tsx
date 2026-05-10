@@ -1,20 +1,26 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { ITEMS, USERS, CONDITIONS } from '../data'
+import { CONDITIONS } from '../data'
 import { ItemImage, Avatar, VerifiedBadge, FreeTag, Icon, SectionHeader, T, ACCENT, pillBtn } from './ui'
 import { TrustBand } from './HeroBand'
-import type { Item } from '../types'
+import type { Item, User } from '../types'
+
+const PLACEHOLDER_USER: User = {
+  name: 'Member', handle: '@user', school: '', schoolCn: '',
+  eduVerified: true, localVerified: false, rating: 5, deals: 0,
+  bio: '', bioCn: '', avatarColor: '#C8553D', avatarInitials: 'U',
+}
 
 const PAGE_SIZE = 8
 
 export function Feed() {
-  const { q, cat, loc, when, openItem, savedIds, toggleSave } = useStore()
+  const { q, cat, loc, when, openItem, savedIds, toggleSave, listings } = useStore()
   const [page, setPage] = useState(1)
 
   // Reset to page 1 whenever filters change
   useEffect(() => { setPage(1) }, [q, cat, loc, when])
 
-  const filtered = ITEMS.filter(it => {
+  const filtered = listings.filter(it => {
     if (cat !== 'all' && it.cat !== cat) return false
     if (loc && !it.location.toLowerCase().includes(loc.split(',')[0].toLowerCase())) return false
     if (when && !it.pickup.toLowerCase().includes(when.toLowerCase()) && when !== 'Flexible') return false
@@ -133,7 +139,8 @@ function Pagination({ page, totalPages, onChange }: { page: number; totalPages: 
 export function ItemCard({ item, onOpen, savedIds, onSave, big }: {
   item: Item; onOpen: () => void; savedIds: Set<string>; onSave: (id: string) => void; big?: boolean
 }) {
-  const seller = USERS[item.seller]
+  const usersByUid = useStore(s => s.usersByUid)
+  const seller = usersByUid[item.seller] ?? PLACEHOLDER_USER
   const cond = CONDITIONS[item.condition]
   const isSaved = savedIds.has(item.id)
 

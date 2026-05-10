@@ -152,7 +152,17 @@ export function Header() {
               <NavIconBtn onClick={openNotif} icon="bell" badge={2} />
               <button onClick={() => setAccountOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 4px 12px', borderRadius: 999, background: T.surface, border: '0.75px solid ' + T.border, cursor: 'pointer' }}>
                 <Icon name="filter" size={14} color={T.text} />
-                <Avatar user={USERS[role === 'student' ? 'me_student' : 'me_local']} size={28} />
+                <Avatar user={{
+                  name: currentUser.name,
+                  handle: currentUser.handle ?? '@user',
+                  school: currentUser.school || '',
+                  schoolCn: currentUser.school || '',
+                  eduVerified: currentUser.eduVerified ?? false,
+                  localVerified: currentUser.localVerified ?? false,
+                  rating: 5, deals: 0, bio: '', bioCn: '',
+                  avatarColor: currentUser.avatarColor ?? '#C8553D',
+                  avatarInitials: currentUser.avatarInitials ?? (currentUser.name?.[0] ?? 'U').toUpperCase(),
+                }} size={28} />
               </button>
               {accountOpen && (
                 <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} signOut={async () => { try { await apiAuth.logout() } catch { /* ignore */ } signOut(); setAccountOpen(false) }} onClose={() => setAccountOpen(false)} />
@@ -257,7 +267,15 @@ function NavIconBtn({ icon, onClick, badge }: { icon: string; onClick?: () => vo
 }
 
 function AccountMenu({ role, switchRole, openProfile, openProfileTab, openMessages, signOut, onClose }: { role: string; switchRole: () => void; openProfile: () => void; openProfileTab: (tab: import('../store').ProfileTab) => void; openMessages: () => void; signOut: () => void; onClose: () => void }) {
-  const me = USERS[role === 'student' ? 'me_student' : 'me_local']
+  const currentUser = useStore(s => s.currentUser)
+  const fallback = USERS[role === 'student' ? 'me_student' : 'me_local']
+  const me = currentUser ? {
+    ...fallback,
+    name:           currentUser.name,
+    handle:         currentUser.handle ?? fallback.handle,
+    avatarColor:    currentUser.avatarColor    ?? fallback.avatarColor,
+    avatarInitials: currentUser.avatarInitials ?? fallback.avatarInitials,
+  } : fallback
   return (
     <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: T.surface, borderRadius: 14, border: '0.75px solid ' + T.border, boxShadow: '0 16px 40px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 60 }}>
       <div style={{ padding: '14px 16px', borderBottom: '0.5px solid ' + T.border, display: 'flex', alignItems: 'center', gap: 10 }}>

@@ -1,8 +1,20 @@
 import { useState, useEffect } from 'react'
 import { useStore } from '../store'
-import { CONVERSATIONS, USERS, ITEMS } from '../data'
+import { CONVERSATIONS } from '../data'
 import { Overlay, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
-import type { Conversation, Message } from '../types'
+import type { Conversation, Message, User, Item } from '../types'
+
+const PLACEHOLDER_USER: User = {
+  name: 'Member', handle: '@user', school: '', schoolCn: '',
+  eduVerified: true, localVerified: false, rating: 5, deals: 0,
+  bio: '', bioCn: '', avatarColor: '#C8553D', avatarInitials: 'U',
+}
+const PLACEHOLDER_ITEM: Item = {
+  id: '', title: '(item removed)', titleCn: '', cat: '', condition: 'good',
+  est: 0, age: '', pickup: '', desc: '', descCn: '', seller: '', location: '',
+  photoColors: ['#EFE9DC', '#A89876'], photoLabel: '', saved: 0, posted: '',
+  imageUrl: '',
+}
 
 export function Messages() {
   const { overlay, closeOverlay, openItem } = useStore()
@@ -18,6 +30,8 @@ export function Messages() {
 function MessagesInner({ initialConv, onClose, onOpenItem }: {
   initialConv: Conversation; onClose: () => void; onOpenItem: (id: string) => void
 }) {
+  const usersByUid = useStore(s => s.usersByUid)
+  const listings = useStore(s => s.listings)
   const [active, setActive] = useState(initialConv)
 
   return (
@@ -34,8 +48,8 @@ function MessagesInner({ initialConv, onClose, onOpenItem }: {
           </div>
           <div style={{ padding: '4px 8px 24px' }}>
             {CONVERSATIONS.map(c => {
-              const u = USERS[c.with]
-              const it = ITEMS.find(i => i.id === c.item)!
+              const u = usersByUid[c.with] ?? PLACEHOLDER_USER
+              const it = listings.find(i => i.id === c.item) ?? PLACEHOLDER_ITEM
               const sel = active.id === c.id
               return (
                 <button key={c.id} onClick={() => setActive(c)} style={{
@@ -68,8 +82,10 @@ function MessagesInner({ initialConv, onClose, onOpenItem }: {
 }
 
 function ChatPane({ conv, onOpenItem }: { conv: Conversation; onOpenItem: (id: string) => void }) {
-  const u = USERS[conv.with]
-  const it = ITEMS.find(i => i.id === conv.item)!
+  const usersByUid = useStore(s => s.usersByUid)
+  const listings = useStore(s => s.listings)
+  const u = usersByUid[conv.with] ?? PLACEHOLDER_USER
+  const it = listings.find(i => i.id === conv.item) ?? PLACEHOLDER_ITEM
   const [msgs, setMsgs] = useState<Message[]>(conv.messages)
   const [draft, setDraft] = useState('')
 

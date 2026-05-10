@@ -1,17 +1,36 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import type { ProfileTab } from '../store'
-import { ITEMS, USERS } from '../data'
+import { USERS } from '../data'
 import { Overlay, ItemImage, Avatar, VerifiedBadge, Icon, T, ACCENT, ACCENT_SOFT, EDU, LOCAL } from './ui'
 import { ItemCard } from './Feed'
 
 export function Profile() {
-  const { overlay, closeOverlay, role, openItem, openMessages, savedIds, toggleSave, profileInitialTab } = useStore()
+  const { overlay, closeOverlay, role, openItem, openMessages, savedIds, toggleSave, profileInitialTab,
+          listings, currentUser } = useStore()
   if (overlay.kind !== 'profile') return null
 
-  const me = USERS[role === 'student' ? 'me_student' : 'me_local']
-  const myItems = ITEMS.filter(i => i.seller === 'u_emma').slice(0, 4)
-  const savedItems = ITEMS.filter(i => savedIds.has(i.id))
+  // Use the live Firebase profile when signed in, otherwise the mock fallback
+  // (lets us show *something* on the unauthenticated demo path).
+  const fallbackMe = USERS[role === 'student' ? 'me_student' : 'me_local']
+  const me = currentUser
+    ? {
+        ...fallbackMe,
+        name:           currentUser.name,
+        handle:         currentUser.handle ?? fallbackMe.handle,
+        school:         currentUser.school || fallbackMe.school,
+        eduVerified:    currentUser.eduVerified ?? fallbackMe.eduVerified,
+        localVerified:  currentUser.localVerified ?? fallbackMe.localVerified,
+        avatarInitials: currentUser.avatarInitials ?? fallbackMe.avatarInitials,
+        avatarColor:    currentUser.avatarColor    ?? fallbackMe.avatarColor,
+      }
+    : fallbackMe
+
+  // "Posted by you" — filter live listings by the signed-in user's UID.
+  // When unauthenticated, fall back to demo seller u_emma so the UI isn't empty.
+  const sellerUid = currentUser?.id ?? 'u_emma'
+  const myItems = listings.filter(i => i.seller === sellerUid).slice(0, 4)
+  const savedItems = listings.filter(i => savedIds.has(i.id))
 
   const [tab, setTab] = useState<ProfileTab>(profileInitialTab)
   const [verifyModal, setVerifyModal] = useState<'edu' | 'local' | null>(null)
@@ -99,7 +118,7 @@ export function Profile() {
           <div style={{ maxWidth: 780 }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {historyRows.map(h => {
-                const item = ITEMS.find(i => i.id === h.itemId)
+                const item = listings.find(i => i.id === h.itemId)
                 return (
                   <button
                     key={h.date}

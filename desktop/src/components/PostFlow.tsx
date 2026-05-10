@@ -1,7 +1,22 @@
 import { useState } from 'react'
 import { useStore } from '../store'
 import { CATEGORIES, CONDITIONS } from '../data'
+import { createListing } from '../listings'
 import { Overlay, Photo, Icon, T, ACCENT, EDU } from './ui'
+
+function estimateValue(cat: string, cond: string, age: string): number {
+  const base: Record<string, number> = {
+    furniture: 250, kitchen: 60, appliance: 180, bike: 350, clothing: 90, household: 75,
+  }
+  const cMult: Record<string, number> = { new: 0.78, excellent: 0.62, good: 0.45, fair: 0.28 }
+  const aMult: Record<string, number> = {
+    '< 6 mo': 1.0, '6-12 mo': 0.9, '1 yr': 0.8, '2 yr': 0.7, '3+ yr': 0.6,
+  }
+  const b  = base[cat] ?? 100
+  const cm = cMult[cond] ?? 0.6
+  const am = aMult[age] ?? 0.75
+  return Math.max(5, Math.round(b * cm * am))
+}
 
 interface PostData {
   photos: number
@@ -26,9 +41,32 @@ function PostFlowInner({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1)
   const [data, setData] = useState<PostData>({ photos: 0, title: '', cat: '', condition: 'excellent', age: '1 yr', pickup: 'Mid-May', notes: '' })
   const [askSave, setAskSave] = useState(false)
+  const [publishing, setPublishing] = useState(false)
+  const [publishError, setPublishError] = useState<string | null>(null)
 
   const set = (k: keyof PostData, v: string | number) => setData(d => ({ ...d, [k]: v }))
   const dirty = data.photos > 0 || !!data.title.trim() || !!data.notes.trim()
+
+  const publish = async () => {
+    setPublishError(null); setPublishing(true)
+    try {
+      await createListing({
+        title:     data.title || 'Untitled',
+        category:  data.cat || 'household',
+        condition: data.condition,
+        estValue:  estimateValue(data.cat, data.condition, data.age),
+        age:       data.age,
+        pickup:    data.pickup,
+        desc:      data.notes,
+        location:  '',
+      })
+      onClose()
+    } catch (e) {
+      setPublishError((e as Error).message)
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   const back = () => {
     if (step === 1) { if (dirty) { setAskSave(true); return }; onClose(); return }
@@ -83,9 +121,18 @@ function PostFlowInner({ onClose }: { onClose: () => void }) {
                 Continue
               </button>
             ) : (
-              <button onClick={onClose} style={{ padding: '12px 22px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-                Publish · free for everyone
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {publishError && (
+                  <span style={{ fontSize: 12, color: '#C0392B' }}>{publishError}</span>
+                )}
+                <button
+                  onClick={publish}
+                  disabled={publishing}
+                  style={{ padding: '12px 22px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 10, cursor: publishing ? 'default' : 'pointer', fontSize: 13, fontWeight: 600, opacity: publishing ? 0.7 : 1 }}
+                >
+                  {publishing ? 'Publishing…' : 'Publish · free for everyone'}
+                </button>
+              </div>
             )}
           </div>
         </div>

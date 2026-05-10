@@ -1,14 +1,21 @@
 import { useStore } from '../store'
-import { ITEMS, USERS, CONDITIONS } from '../data'
+import { CONDITIONS } from '../data'
 import { Overlay, ItemImage, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
+import type { User } from '../types'
+
+const PLACEHOLDER_USER: User = {
+  name: 'Member', handle: '@user', school: '', schoolCn: '',
+  eduVerified: true, localVerified: false, rating: 5, deals: 0,
+  bio: '', bioCn: '', avatarColor: '#C8553D', avatarInitials: 'U',
+}
 
 export function ItemDetail() {
-  const { overlay, closeOverlay, savedIds, toggleSave, openMessages, currentUser, openAuth } = useStore()
+  const { overlay, closeOverlay, savedIds, toggleSave, openMessages, currentUser, openAuth, listings, usersByUid } = useStore()
   if (overlay.kind !== 'item' || !overlay.itemId) return null
-  const item = ITEMS.find(i => i.id === overlay.itemId)
+  const item = listings.find(i => i.id === overlay.itemId)
   if (!item) return null
 
-  const seller = USERS[item.seller]
+  const seller = usersByUid[item.seller] ?? PLACEHOLDER_USER
   const cond = CONDITIONS[item.condition]
   const isSaved = savedIds.has(item.id)
 
