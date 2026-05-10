@@ -69,17 +69,19 @@ struct ListingPhoto: View {
     }
 }
 
-// MARK: - Avatar (initials in colored circle)
+// MARK: - Avatar (default hare icon)
 struct AvatarView: View {
     let user: SellerProfile
     var size: CGFloat = 36
 
     var body: some View {
         ZStack {
-            Circle().fill(user.avatarColor)
-            Text(user.avatarInitials)
-                .font(.system(size: size * 0.38, weight: .semibold))
-                .foregroundStyle(.white)
+            Circle().fill(Color(hex: "E8E0D4"))
+            Image(systemName: "hare.fill")
+                .resizable()
+                .scaledToFit()
+                .foregroundStyle(Color(hex: "8A7560"))
+                .padding(size * 0.22)
         }
         .frame(width: size, height: size)
         .overlay(
