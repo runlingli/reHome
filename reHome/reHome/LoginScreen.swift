@@ -64,7 +64,18 @@ struct LoginScreen: View {
                         .opacity(isWorking ? 0.7 : 1)
                     }
                     .disabled(isWorking)
-                    .padding(.bottom, 18)
+                    .padding(.bottom, 14)
+
+                    HStack(spacing: 10) {
+                        Rectangle().fill(Theme.border).frame(height: 0.5)
+                        Text("OR").font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint).tracking(1)
+                        Rectangle().fill(Theme.border).frame(height: 0.5)
+                    }
+                    .padding(.bottom, 14)
+
+                    GoogleSignInRow(isWorking: $isWorking, errorMsg: $errorMsg, isLoggedIn: $isLoggedIn)
+                        .padding(.bottom, 18)
 
                     Button { showRegister = true } label: {
                         Text("No account? \(Text("Sign up").foregroundStyle(Theme.accent).bold())")
@@ -88,6 +99,52 @@ struct LoginScreen: View {
         defer { isWorking = false }
         do {
             _ = try await Auth.auth().signIn(withEmail: email, password: password)
+            isLoggedIn = true
+        } catch {
+            errorMsg = (error as NSError).localizedDescription
+        }
+    }
+}
+
+// MARK: - "Continue with Google" pill (shared between Login + Register)
+struct GoogleSignInRow: View {
+    @Binding var isWorking: Bool
+    @Binding var errorMsg: String
+    @Binding var isLoggedIn: Bool
+
+    var body: some View {
+        Button {
+            Task { await go() }
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "g.circle.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Color(hex: "4285F4"))
+                Text("Continue with Google")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+            .background(
+                RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                    .fill(Theme.surface)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: Radius.md, style: .continuous)
+                            .strokeBorder(Theme.border, lineWidth: 1)
+                    )
+            )
+        }
+        .disabled(isWorking)
+        .opacity(isWorking ? 0.6 : 1)
+    }
+
+    private func go() async {
+        errorMsg = ""
+        isWorking = true
+        defer { isWorking = false }
+        do {
+            _ = try await GoogleAuth.signIn()
             isLoggedIn = true
         } catch {
             errorMsg = (error as NSError).localizedDescription

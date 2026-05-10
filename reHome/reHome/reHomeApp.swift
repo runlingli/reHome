@@ -2,14 +2,20 @@ import SwiftUI
 import FirebaseCore
 import FirebaseAuth
 import FirebaseFirestore
+import GoogleSignIn
 
 @main
 struct reHomeApp: App {
     init() {
         FirebaseApp.configure()
 
+        // GoogleSignIn — pull the iOS OAuth client ID from FirebaseApp.options
+        // (mirrors GoogleService-Info.plist's CLIENT_ID).
+        if let clientId = FirebaseApp.app()?.options.clientID {
+            GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientId)
+        }
+
         #if DEBUG
-        // Opt in to local emulators by setting USE_FIREBASE_EMULATORS=1 in the scheme env.
         if ProcessInfo.processInfo.environment["USE_FIREBASE_EMULATORS"] == "1" {
             Auth.auth().useEmulator(withHost: "localhost", port: 9099)
             let s = Firestore.firestore().settings
@@ -24,6 +30,10 @@ struct reHomeApp: App {
     var body: some Scene {
         WindowGroup {
             RootView()
+                // Required for GIDSignIn to receive the OAuth callback URL.
+                .onOpenURL { url in
+                    _ = GIDSignIn.sharedInstance.handle(url)
+                }
         }
     }
 }

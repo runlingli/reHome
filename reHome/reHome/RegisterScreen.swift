@@ -98,7 +98,18 @@ struct RegisterScreen: View {
                         .opacity(isWorking ? 0.7 : 1)
                     }
                     .disabled(isWorking)
-                    .padding(.bottom, 20)
+                    .padding(.bottom, 14)
+
+                    HStack(spacing: 10) {
+                        Rectangle().fill(Theme.border).frame(height: 0.5)
+                        Text("OR").font(.system(size: 11, weight: .semibold, design: .monospaced))
+                            .foregroundStyle(Theme.textFaint).tracking(1)
+                        Rectangle().fill(Theme.border).frame(height: 0.5)
+                    }
+                    .padding(.bottom, 14)
+
+                    GoogleSignInRow(isWorking: $isWorking, errorMsg: $errorMsg, isLoggedIn: $isLoggedIn)
+                        .padding(.bottom, 20)
 
                     Text("By signing up you agree to our Terms & Privacy Policy.")
                         .font(.system(size: 11))
