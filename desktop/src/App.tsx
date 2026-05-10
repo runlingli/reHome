@@ -8,6 +8,8 @@ import { ItemDetail } from './components/ItemDetail'
 import { Messages } from './components/Messages'
 import { PostFlow } from './components/PostFlow'
 import { Profile } from './components/Profile'
+import { AuthModal } from './components/AuthModal'
+import { NotifPanel } from './components/NotifPanel'
 
 export default function App() {
   const { overlay, closeOverlay } = useStore()
@@ -33,6 +35,9 @@ export default function App() {
       {overlay.kind === 'messages' && <Messages />}
       {overlay.kind === 'post'     && <PostFlow />}
       {overlay.kind === 'profile'  && <Profile />}
+
+      <AuthModal />
+      <NotifPanel />
     </>
   )
 }

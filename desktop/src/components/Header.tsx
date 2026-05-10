@@ -4,11 +4,13 @@ import { CATEGORIES, USERS, LOCATIONS, WHEN_OPTIONS } from '../data'
 import { Logo, Icon, Avatar, VerifiedBadge, T, ACCENT, pillBtn } from './ui'
 
 export function Header() {
-  const { q, setQ, cat, setCat, loc, setLoc, when, setWhen, role, switchRole, openPost, openMessages, openProfile, openProfileTab } = useStore()
+  const { q, setQ, cat, setCat, loc, setLoc, when, setWhen, role, switchRole, openPost, openMessages, openProfile, openProfileTab, currentUser, openAuth, signOut, openNotif } = useStore()
   const [activeDropdown, setActiveDropdown] = useState<'where' | 'when' | null>(null)
   const [accountOpen, setAccountOpen] = useState(false)
   const pillRef = useRef<HTMLDivElement>(null)
   const totalUnread = 3
+
+  const requireAuth = (action: () => void) => currentUser ? action() : openAuth('login')
 
   const pillFocused = activeDropdown !== null
 
@@ -139,18 +141,31 @@ export function Header() {
 
         {/* Right nav */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto', position: 'relative' }}>
-          <button onClick={openPost} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 999, background: T.text, color: T.bg, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-            <Icon name="plus" size={14} color={T.bg} stroke={2.4} />
-            Post item
-          </button>
-          <NavIconBtn onClick={openMessages} icon="chat" badge={totalUnread} />
-          <NavIconBtn icon="bell" />
-          <button onClick={() => setAccountOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 4px 12px', borderRadius: 999, background: T.surface, border: '0.75px solid ' + T.border, cursor: 'pointer' }}>
-            <Icon name="filter" size={14} color={T.text} />
-            <Avatar user={USERS[role === 'student' ? 'me_student' : 'me_local']} size={28} />
-          </button>
-          {accountOpen && (
-            <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} onClose={() => setAccountOpen(false)} />
+          {currentUser ? (
+            <>
+              <button onClick={() => requireAuth(openPost)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 14px', borderRadius: 999, background: T.text, color: T.bg, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                <Icon name="plus" size={14} color={T.bg} stroke={2.4} />
+                Post item
+              </button>
+              <NavIconBtn onClick={() => requireAuth(openMessages)} icon="chat" badge={totalUnread} />
+              <NavIconBtn onClick={openNotif} icon="bell" badge={2} />
+              <button onClick={() => setAccountOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 6px 4px 12px', borderRadius: 999, background: T.surface, border: '0.75px solid ' + T.border, cursor: 'pointer' }}>
+                <Icon name="filter" size={14} color={T.text} />
+                <Avatar user={USERS[role === 'student' ? 'me_student' : 'me_local']} size={28} />
+              </button>
+              {accountOpen && (
+                <AccountMenu role={role} switchRole={switchRole} openProfile={openProfile} openProfileTab={openProfileTab} openMessages={openMessages} signOut={() => { signOut(); setAccountOpen(false) }} onClose={() => setAccountOpen(false)} />
+              )}
+            </>
+          ) : (
+            <>
+              <button onClick={() => openAuth('login')} style={{ padding: '9px 16px', borderRadius: 999, background: 'transparent', border: '0.75px solid ' + T.border, cursor: 'pointer', fontSize: 13, fontWeight: 500, color: T.text }}>
+                Log in
+              </button>
+              <button onClick={() => openAuth('signup')} style={{ padding: '9px 16px', borderRadius: 999, background: T.text, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600, color: T.bg }}>
+                Sign up
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -240,7 +255,7 @@ function NavIconBtn({ icon, onClick, badge }: { icon: string; onClick?: () => vo
   )
 }
 
-function AccountMenu({ role, switchRole, openProfile, openProfileTab, openMessages, onClose }: { role: string; switchRole: () => void; openProfile: () => void; openProfileTab: (tab: import('../store').ProfileTab) => void; openMessages: () => void; onClose: () => void }) {
+function AccountMenu({ role, switchRole, openProfile, openProfileTab, openMessages, signOut, onClose }: { role: string; switchRole: () => void; openProfile: () => void; openProfileTab: (tab: import('../store').ProfileTab) => void; openMessages: () => void; signOut: () => void; onClose: () => void }) {
   const me = USERS[role === 'student' ? 'me_student' : 'me_local']
   return (
     <div style={{ position: 'absolute', top: 'calc(100% + 8px)', right: 0, width: 260, background: T.surface, borderRadius: 14, border: '0.75px solid ' + T.border, boxShadow: '0 16px 40px rgba(0,0,0,0.12)', overflow: 'hidden', zIndex: 60 }}>
@@ -264,7 +279,7 @@ function AccountMenu({ role, switchRole, openProfile, openProfileTab, openMessag
         <div style={{ height: 0.5, background: T.border, margin: '4px 0' }} />
         <MenuRow icon="globe" label={`Switch role · ${role === 'student' ? 'Local' : 'Student'}`} onClick={() => { switchRole(); onClose() }} />
         <MenuRow icon="globe" label="Help & guidelines" />
-        <MenuRow icon="back"  label="Sign out" />
+        <MenuRow icon="back"  label="Sign out" onClick={signOut} />
       </div>
     </div>
   )

@@ -3,7 +3,7 @@ import { ITEMS, USERS, CONDITIONS } from '../data'
 import { Overlay, ItemImage, Photo, Avatar, VerifiedBadge, FreeTag, Icon, T, ACCENT } from './ui'
 
 export function ItemDetail() {
-  const { overlay, closeOverlay, savedIds, toggleSave, openMessages } = useStore()
+  const { overlay, closeOverlay, savedIds, toggleSave, openMessages, currentUser, openAuth } = useStore()
   if (overlay.kind !== 'item' || !overlay.itemId) return null
   const item = ITEMS.find(i => i.id === overlay.itemId)
   if (!item) return null
@@ -107,11 +107,14 @@ export function ItemDetail() {
                 Estimated retail value shown so receivers see what's being passed on. No money changes hands.
               </div>
               <button
-                onClick={() => { closeOverlay(); openMessages(item.seller) }}
+                onClick={() => {
+                  if (currentUser) { closeOverlay(); openMessages(item.seller) }
+                  else { closeOverlay(); openAuth('login') }
+                }}
                 style={{ width: '100%', marginTop: 18, padding: '14px 16px', background: ACCENT, color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
               >
                 <Icon name="chat" size={16} color="#fff" />
-                Request pickup
+                {currentUser ? 'Request pickup' : 'Sign in to request'}
               </button>
 
               <div style={{ height: 0.5, background: T.border, margin: '20px 0' }} />
