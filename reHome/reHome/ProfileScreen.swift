@@ -2,6 +2,7 @@ import SwiftUI
 import FirebaseAuth
 
 struct ProfileScreen: View {
+    @Binding var savedSet: Set<String>
     @AppStorage("isLoggedIn") private var isLoggedIn = false
     @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
     @ObservedObject private var fs = FirestoreService.shared
@@ -317,10 +318,19 @@ struct ProfileScreen: View {
     }
 
     private var quickLinks: some View {
-        VStack(spacing: 0) {
-            quickLinkRow(systemName: "heart", label: "Saved", count: 2)
+        let draftCount = DraftStore.load().count
+        return VStack(spacing: 0) {
+            NavigationLink(destination: SavedScreen(savedSet: $savedSet)) {
+                quickLinkRowContent(systemName: "heart", label: "Saved",
+                                    count: savedSet.isEmpty ? nil : savedSet.count)
+            }
+            .buttonStyle(.plain)
             Divider().background(Theme.borderSubtle).padding(.leading, 48)
-            quickLinkRow(systemName: "tray.full", label: "Drafts", count: 1)
+            NavigationLink(destination: DraftsScreen()) {
+                quickLinkRowContent(systemName: "tray.full", label: "Drafts",
+                                    count: draftCount > 0 ? draftCount : nil)
+            }
+            .buttonStyle(.plain)
             Divider().background(Theme.borderSubtle).padding(.leading, 48)
             NavigationLink(destination: SchoolAlertsScreen()) {
                 quickLinkRowContent(systemName: "bell.badge",
