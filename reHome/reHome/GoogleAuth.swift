@@ -8,10 +8,12 @@ enum GoogleAuth {
     enum AuthError: LocalizedError {
         case noPresentingVC
         case noIDToken
+        case nonEduEmail
         var errorDescription: String? {
             switch self {
             case .noPresentingVC: return "Couldn't find a window to present sign-in."
             case .noIDToken:      return "Google didn't return an ID token."
+            case .nonEduEmail:    return "reHome requires a university .edu email. Try signing in with your school Google account."
             }
         }
     }
@@ -22,6 +24,13 @@ enum GoogleAuth {
 
         let result = try await GIDSignIn.sharedInstance.signIn(withPresenting: presenter)
         guard let idToken = result.user.idToken?.tokenString else { throw AuthError.noIDToken }
+
+        // Block non-.edu Google accounts BEFORE writing anything to Firebase.
+        let email = (result.user.profile?.email ?? "").lowercased()
+        guard email.hasSuffix(".edu") else {
+            GIDSignIn.sharedInstance.signOut()
+            throw AuthError.nonEduEmail
+        }
 
         let credential = GoogleAuthProvider.credential(
             withIDToken: idToken,

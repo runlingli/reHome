@@ -19,7 +19,7 @@ const PLACEHOLDER_ITEM: Item = {
 }
 
 export function Messages() {
-  const { overlay, closeOverlay, openItem, conversations, currentUser, listings } = useStore()
+  const { overlay, closeOverlay, openItem, conversations, currentUser } = useStore()
   if (overlay.kind !== 'messages') return null
 
   const myUid = currentUser?.id ?? null

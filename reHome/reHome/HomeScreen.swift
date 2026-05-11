@@ -8,6 +8,7 @@ struct HomeScreen: View {
     @ObservedObject private var fs = FirestoreService.shared
     @State private var query: String = ""
     @State private var selectedCategory: String = "all"
+    @State private var showAlerts = false
     private let gap: CGFloat = 12
     @AppStorage("subscribedSchools") private var subscribedSchools: String = "bu,mit"
 
@@ -113,6 +114,16 @@ struct HomeScreen: View {
         }
         .background(Theme.bg.ignoresSafeArea())
         .task { fs.startListeningListings() }
+        .sheet(isPresented: $showAlerts) {
+            NavigationStack {
+                SchoolAlertsScreen()
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") { showAlerts = false }
+                        }
+                    }
+            }
+        }
         .overlay(alignment: .top) {
             if let err = fs.lastError {
                 Text(err)
@@ -157,7 +168,7 @@ struct HomeScreen: View {
             HStack {
                 ReHomeLogo(size: 22)
                 Spacer()
-                CircleIconButton(systemName: "bell")
+                CircleIconButton(systemName: "bell") { showAlerts = true }
             }
 
             HStack(spacing: 8) {

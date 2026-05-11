@@ -236,6 +236,7 @@ extension Listing {
         self.status         = data["status"]       as? String ?? "available"
         self.handoffKind    = HandoffKind(rawValue: handoffStr) ?? .meetIndoor
         self.doorsideWindow = data["doorsideWindow"] as? String ?? ""
+        self.imageUrl       = data["imageUrl"]       as? String
     }
 
     private static func relativeAge(from ts: Timestamp?) -> String {

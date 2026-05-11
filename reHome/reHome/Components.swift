@@ -52,21 +52,53 @@ private struct DiagonalStripes: View {
 }
 
 // MARK: - Listing photo (real image with gradient fallback)
+//
+// Resolution priority:
+//   1. listing.imageUrl  — remote image (Firestore-seeded photos)
+//   2. listing.imageName — local asset
+//   3. gradient + label placeholder
 struct ListingPhoto: View {
     let listing: Listing
     var aspectRatio: CGFloat? = 1
     var corner: CGFloat = Radius.md
 
     var body: some View {
-        if let name = listing.imageName {
-            Color.clear
-                .aspectRatio(aspectRatio, contentMode: .fit)
-                .overlay(Image(name).resizable().scaledToFill())
-                .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-        } else {
-            PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
-                             aspectRatio: aspectRatio, corner: corner)
+        Group {
+            if let url = remoteURL {
+                AsyncImage(url: url, transaction: Transaction(animation: .easeOut(duration: 0.25))) { phase in
+                    switch phase {
+                    case .empty:
+                        // Use the gradient as a skeleton while loading.
+                        PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
+                                         aspectRatio: aspectRatio, corner: corner)
+                    case .success(let img):
+                        Color.clear
+                            .aspectRatio(aspectRatio, contentMode: .fit)
+                            .overlay(img.resizable().scaledToFill())
+                            .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+                    case .failure:
+                        PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
+                                         aspectRatio: aspectRatio, corner: corner)
+                    @unknown default:
+                        PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
+                                         aspectRatio: aspectRatio, corner: corner)
+                    }
+                }
+            } else if let name = listing.imageName {
+                Color.clear
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+                    .overlay(Image(name).resizable().scaledToFill())
+                    .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
+            } else {
+                PhotoPlaceholder(colors: listing.photoColors, label: listing.photoLabel,
+                                 aspectRatio: aspectRatio, corner: corner)
+            }
         }
+    }
+
+    private var remoteURL: URL? {
+        guard let raw = listing.imageUrl, !raw.isEmpty else { return nil }
+        return URL(string: raw)
     }
 }
 

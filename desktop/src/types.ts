@@ -28,6 +28,7 @@ export interface Item {
   photoLabel: string
   saved: number
   posted: string
+  postedAt?: number  // ms epoch — for time-window stats; absent for mock fixtures
   imageUrl: string
   status?: string   // "available" | "completed"
 }

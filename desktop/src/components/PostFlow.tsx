@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useStore } from '../store'
 import { CATEGORIES, CONDITIONS } from '../data'
-import { createListing } from '../listings'
-import { Overlay, Photo, Icon, T, ACCENT, EDU } from './ui'
+import { createListing, uploadListingPhoto, setListingImageUrl } from '../listings'
+import { Overlay, Icon, T, ACCENT, EDU } from './ui'
 
 function estimateValue(cat: string, cond: string, age: string): number {
   const base: Record<string, number> = {
@@ -48,17 +48,22 @@ function PostFlowInner({ onClose, initialDraft, draftIdx }: {
   const [data, setData] = useState<PostData>(
     initialDraft ?? { photos: 0, title: '', cat: '', condition: 'excellent', age: '1 yr', pickup: 'Mid-May', notes: '' }
   )
+  const [files, setFiles] = useState<File[]>([])
   const [askSave, setAskSave] = useState(false)
   const [publishing, setPublishing] = useState(false)
   const [publishError, setPublishError] = useState<string | null>(null)
 
+  // Keep data.photos in sync with the actual selected file count so the
+  // draft + review screens see a real number.
+  useEffect(() => { setData(d => ({ ...d, photos: files.length })) }, [files.length])
+
   const set = (k: keyof PostData, v: string | number) => setData(d => ({ ...d, [k]: v }))
-  const dirty = data.photos > 0 || !!data.title.trim() || !!data.notes.trim()
+  const dirty = files.length > 0 || !!data.title.trim() || !!data.notes.trim()
 
   const publish = async () => {
     setPublishError(null); setPublishing(true)
     try {
-      await createListing({
+      const listingId = await createListing({
         title:     data.title || 'Untitled',
         category:  data.cat || 'household',
         condition: data.condition,
@@ -68,6 +73,13 @@ function PostFlowInner({ onClose, initialDraft, draftIdx }: {
         desc:      data.notes,
         location:  '',
       })
+
+      // Upload photos to listings/{id}/{N}.jpg; first one becomes imageUrl.
+      if (files.length > 0) {
+        const urls = await Promise.all(files.map((f, i) => uploadListingPhoto(listingId, f, i)))
+        if (urls[0]) await setListingImageUrl(listingId, urls[0])
+      }
+
       if (draftIdx !== undefined) deleteDraft(draftIdx)
       onClose()
     } catch (e) {
@@ -115,7 +127,7 @@ function PostFlowInner({ onClose, initialDraft, draftIdx }: {
 
         {/* Right body */}
         <div style={{ padding: '32px 44px 100px', position: 'relative' }}>
-          {step === 1 && <PostStep1 data={data} set={set} />}
+          {step === 1 && <PostStep1 data={data} set={set} files={files} setFiles={setFiles} />}
           {step === 2 && <PostStep2 data={data} set={set} />}
           {step === 3 && <PostStep3 data={data} set={set} />}
           {step === 4 && <PostStep4 data={data} />}
@@ -182,19 +194,73 @@ function inputStyle(): React.CSSProperties {
   return { width: '100%', padding: '14px 16px', borderRadius: 12, border: '1px solid ' + T.border, background: T.surface, color: T.text, fontSize: 15, outline: 'none' }
 }
 
-function PostStep1({ data, set }: { data: PostData; set: (k: keyof PostData, v: string | number) => void }) {
+function PostStep1({ data, set, files, setFiles }: {
+  data: PostData
+  set: (k: keyof PostData, v: string | number) => void
+  files: File[]
+  setFiles: React.Dispatch<React.SetStateAction<File[]>>
+}) {
+  // Stable object URLs for previews; revoked when files change/unmount.
+  const [previews, setPreviews] = useState<string[]>([])
+  useEffect(() => {
+    const urls = files.map(f => URL.createObjectURL(f))
+    setPreviews(urls)
+    return () => urls.forEach(URL.revokeObjectURL)
+  }, [files])
+
+  const onPick: React.ChangeEventHandler<HTMLInputElement> = e => {
+    const incoming = Array.from(e.target.files ?? []).filter(f => f.type.startsWith('image/'))
+    if (incoming.length === 0) return
+    setFiles(prev => [...prev, ...incoming].slice(0, 4))
+    e.target.value = ''  // allow re-selecting the same file later
+  }
+  const removeAt = (i: number) => setFiles(prev => prev.filter((_, idx) => idx !== i))
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 640 }}>
       <FieldLabel>Photos · 1–4</FieldLabel>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
         {[0,1,2,3].map(i => {
-          const filled = i < data.photos
+          const url = previews[i]
+          if (url) {
+            return (
+              <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: 12, overflow: 'hidden', background: T.surfaceAlt, border: '0.75px solid ' + T.border }}>
+                <img src={url} alt={`photo ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                <button
+                  onClick={() => removeAt(i)}
+                  aria-label="Remove"
+                  style={{ position: 'absolute', top: 6, right: 6, width: 24, height: 24, borderRadius: 999, border: 'none', background: 'rgba(0,0,0,0.6)', color: '#fff', cursor: 'pointer', fontSize: 14, lineHeight: 1, padding: 0 }}
+                >
+                  ×
+                </button>
+              </div>
+            )
+          }
+          // Open the picker on the FIRST empty slot only — extras are decorative.
+          const isFirstEmpty = i === files.length
           return (
-            <button key={i} onClick={() => set('photos', i + 1)} style={{ aspectRatio: '1', borderRadius: 12, padding: 0, cursor: 'pointer', background: filled ? T.surfaceAlt : 'transparent', border: filled ? '0.75px solid ' + T.border : '1.5px dashed ' + T.border, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-              {filled
-                ? <Photo colors={['#EFE9DC', '#A89876']} label={`photo ${i + 1}`} aspect="1" radius={0} />
-                : <Icon name="camera" size={22} color={T.textMuted} />}
-            </button>
+            <label
+              key={i}
+              style={{
+                aspectRatio: '1', borderRadius: 12,
+                cursor: isFirstEmpty ? 'pointer' : 'default',
+                background: 'transparent',
+                border: '1.5px dashed ' + T.border,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                opacity: isFirstEmpty ? 1 : 0.5,
+              }}
+            >
+              <Icon name={isFirstEmpty ? 'plus' : 'camera'} size={22} color={T.textMuted} />
+              {isFirstEmpty && (
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={onPick}
+                  style={{ display: 'none' }}
+                />
+              )}
+            </label>
           )
         })}
       </div>

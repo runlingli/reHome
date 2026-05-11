@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { PackageOpen, BookmarkPlus, FileText } from 'lucide-react'
 import { useStore } from '../store'
 import type { ProfileTab, PostDraft } from '../store'
 import { USERS, CATEGORIES } from '../data'
@@ -30,7 +31,7 @@ export function Profile() {
   // "Posted by you" — filter live listings by the signed-in user's UID.
   // When unauthenticated, fall back to demo seller u_emma so the UI isn't empty.
   const sellerUid = currentUser?.id ?? 'u_emma'
-  const myItems = listings.filter(i => i.seller === sellerUid).slice(0, 4)
+  const myItems = listings.filter(i => i.seller === sellerUid && i.status !== 'completed').slice(0, 4)
   const savedItemIds = [...savedIds]
   const hasInvalidSaved = savedItemIds.some(id => !listings.some(i => i.id === id))
 
@@ -109,7 +110,7 @@ export function Profile() {
             ? <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 20 }}>
                 {myItems.map(it => <ItemCard key={it.id} item={it} onOpen={() => openItem(it.id)} savedIds={savedIds} onSave={toggleSave} />)}
               </div>
-            : <EmptyState icon="📦" title="No listings yet" sub="Post your first item to get started." action={{ label: 'Post an item', onClick: () => {} }} />
+            : <EmptyState icon={<PackageOpen size={44} strokeWidth={1.5} color={T.textFaint} />} title="No listings yet" sub="Post your first item to get started." action={{ label: 'Post an item', onClick: () => {} }} />
         )}
 
         {/* ── Saved ── */}
@@ -134,7 +135,7 @@ export function Profile() {
                     return <SavedItemCard key={id} item={item} sold={sold} onOpen={() => openItem(id)} onRemove={() => toggleSave(id)} savedIds={savedIds} onSave={toggleSave} />
                   })}
                 </div>
-              : <EmptyState icon="🤍" title="Nothing saved yet" sub="Tap the heart on any item to save it here." />
+              : <EmptyState icon={<BookmarkPlus size={44} strokeWidth={1.5} color={T.textFaint} />} title="Nothing saved yet" sub="Tap the heart on any item to save it here." />
             }
           </div>
         )}
@@ -152,7 +153,7 @@ export function Profile() {
                   />
                 ))}
               </div>
-            : <EmptyState icon="📝" title="No drafts" sub="Start a listing and choose "Save draft" when you exit to continue later." action={{ label: 'New listing', onClick: openPost }} />
+            : <EmptyState icon={<FileText size={44} strokeWidth={1.5} color={T.textFaint} />} title="No drafts" sub='Start a listing and choose "Save draft" when you exit to continue later.' action={{ label: 'New listing', onClick: openPost }} />
         )}
 
         {/* ── History ── */}
@@ -482,10 +483,10 @@ function DraftRow({ draft, onOpen, onDelete }: { draft: PostDraft; onOpen: () =>
   )
 }
 
-function EmptyState({ icon, title, sub, action }: { icon: string; title: string; sub: string; action?: { label: string; onClick: () => void } }) {
+function EmptyState({ icon, title, sub, action }: { icon: React.ReactNode; title: string; sub: string; action?: { label: string; onClick: () => void } }) {
   return (
     <div style={{ textAlign: 'center', padding: '60px 0', color: T.textMuted }}>
-      <div style={{ fontSize: 44, marginBottom: 14 }}>{icon}</div>
+      <div style={{ marginBottom: 14, display: 'flex', justifyContent: 'center' }}>{icon}</div>
       <div style={{ fontSize: 17, fontWeight: 600, color: T.text, marginBottom: 6 }}>{title}</div>
       <div style={{ fontSize: 13, marginBottom: action ? 20 : 0 }}>{sub}</div>
       {action && (

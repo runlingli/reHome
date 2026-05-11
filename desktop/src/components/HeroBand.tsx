@@ -1,8 +1,14 @@
 import { T, ACCENT, ACCENT_SOFT, VerifiedBadge } from './ui'
 import { useStore } from '../store'
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
 export function HeroBand() {
-  const { openPost } = useStore()
+  const { openPost, listings } = useStore()
+  const active   = listings.filter(l => l.status !== 'completed')
+  const recent7d = active.filter(l => l.postedAt && (Date.now() - l.postedAt) < SEVEN_DAYS_MS).length
+  const pickups  = listings.filter(l => l.status === 'completed').length
+
   return (
     <section style={{ maxWidth: 1320, margin: '0 auto', padding: '32px 32px 8px' }}>
       <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 16, borderRadius: 22, overflow: 'hidden' }}>
@@ -25,7 +31,7 @@ export function HeroBand() {
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 24 }}>
             <button style={{ padding: '12px 18px', borderRadius: 12, background: T.text, color: T.bg, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
-              Browse 428 items
+              Browse {active.length} items
             </button>
             <button onClick={openPost} style={{ padding: '12px 18px', borderRadius: 12, background: 'transparent', color: T.text, border: '1px solid ' + T.text, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               Post an item
@@ -38,10 +44,10 @@ export function HeroBand() {
           </div>
         </div>
 
-        {/* Stat tiles */}
+        {/* Stat tiles — live from Firestore listings */}
         <div style={{ display: 'grid', gridTemplateRows: '1fr 1fr', gap: 16 }}>
-          <StatTile big="428" label="Items posted in the last 7 days" sub="across Davis area" tint="#EFE9DC" />
-          <StatTile big="980+" label="Local pickups" tint="#E0EAFA" badgeKind="local" />
+          <StatTile big={String(recent7d)} label="Items posted in the last 7 days" sub="across Davis area" tint="#EFE9DC" />
+          <StatTile big={String(pickups)} label="Local pickups" tint="#E0EAFA" badgeKind="local" />
         </div>
       </div>
     </section>

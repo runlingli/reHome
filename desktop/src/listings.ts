@@ -55,6 +55,7 @@ function decodeListing(id: string, d: FirestoreListing): Item {
     photoLabel:  d.photoLabel || '',
     saved:       d.savedCount ?? 0,
     posted:      relativeAge(d.createdAt ?? null),
+    postedAt:    d.createdAt?.toMillis(),
     imageUrl:    d.imageUrl || '',
     status:      (d as any).status || 'available',
   }
@@ -91,15 +92,13 @@ function decodeUser(d: FirestoreUser): User {
 }
 
 /** Subscribe to the latest 50 listings sorted by createdAt desc.
+ *  Returns ALL listings including completed — consumers (Feed, Profile) filter
+ *  for what they display, while HeroBand counts completed for "Local pickups".
  *  Returns the unsubscribe function (call on app teardown). */
 export function subscribeToListings(onChange: (items: Item[]) => void): () => void {
   const q = query(collection(db, 'listings'), orderBy('createdAt', 'desc'), limit(50))
   return onSnapshot(q, snap => {
-    onChange(
-      snap.docs
-        .map(d => decodeListing(d.id, d.data() as FirestoreListing))
-        .filter(it => it.status !== 'completed')
-    )
+    onChange(snap.docs.map(d => decodeListing(d.id, d.data() as FirestoreListing)))
   }, err => {
     console.error('[listings] snapshot error:', err)
   })
@@ -169,6 +168,21 @@ export async function createListing(input: NewListingInput): Promise<string> {
     createdAt:    serverTimestamp(),
   })
   return ref.id
+}
+
+/** Upload one photo for a listing to Storage at listings/{listingId}/{idx}.jpg
+ *  and return the public download URL. */
+export async function uploadListingPhoto(listingId: string, file: File, idx: number): Promise<string> {
+  const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage')
+  const { storage } = await import('./firebase')
+  const r = ref(storage, `listings/${listingId}/${idx}.jpg`)
+  await uploadBytes(r, file, { contentType: file.type || 'image/jpeg' })
+  return await getDownloadURL(r)
+}
+
+/** Patch a listing's imageUrl after the photos are uploaded. */
+export async function setListingImageUrl(listingId: string, imageUrl: string): Promise<void> {
+  await updateDoc(doc(db, 'listings', listingId), { imageUrl })
 }
 
 // ─── Conversations ────────────────────────────────────────────────────────────

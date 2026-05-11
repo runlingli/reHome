@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
+import { SearchX } from 'lucide-react'
 import { useStore } from '../store'
-import { CONDITIONS } from '../data'
+import { CONDITIONS, CATEGORIES } from '../data'
 import { ItemImage, Avatar, VerifiedBadge, FreeTag, Icon, SectionHeader, T, ACCENT, pillBtn } from './ui'
 import { TrustBand } from './HeroBand'
 import type { Item, User } from '../types'
@@ -20,12 +21,24 @@ export function Feed() {
   // Reset to page 1 whenever filters change
   useEffect(() => { setPage(1) }, [q, cat, loc, when])
 
+  // Tokenize the query so "trek bike" matches a "Trek FX 2 hybrid bike" listing
+  // even when the words are interleaved or in a different order. Search corpus
+  // includes title, description, location, category label, and condition label
+  // so users can type "furniture", "excellent", "brookline", etc.
+  const tokens = q.trim().toLowerCase().split(/\s+/).filter(Boolean)
+
   const filtered = listings.filter(it => {
+    if (it.status === 'completed') return false
     if (cat !== 'all' && it.cat !== cat) return false
     if (loc && !it.location.toLowerCase().includes(loc.split(',')[0].toLowerCase())) return false
     if (when && !it.pickup.toLowerCase().includes(when.toLowerCase()) && when !== 'Flexible') return false
     if (when === 'Flexible' && it.pickup !== 'Flexible') return false
-    if (q && !(it.title + ' ' + it.location + ' ' + it.desc).toLowerCase().includes(q.toLowerCase())) return false
+    if (tokens.length > 0) {
+      const catLabel  = CATEGORIES.find(c => c.id === it.cat)?.en.toLowerCase() ?? ''
+      const condLabel = CONDITIONS[it.condition]?.en.toLowerCase() ?? ''
+      const haystack = `${it.title} ${it.desc} ${it.location} ${catLabel} ${condLabel}`.toLowerCase()
+      if (!tokens.every(t => haystack.includes(t))) return false
+    }
     return true
   })
 
@@ -78,8 +91,8 @@ export function Feed() {
 
       {filtered.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 0', color: T.textMuted }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
-          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8 }}>No items found</div>
+          <SearchX size={44} strokeWidth={1.5} color={T.textFaint} style={{ marginBottom: 14 }} />
+          <div style={{ fontSize: 18, fontWeight: 600, marginBottom: 8, color: T.text }}>No items found</div>
           <div style={{ fontSize: 14 }}>Try adjusting your search or filters</div>
         </div>
       )}
