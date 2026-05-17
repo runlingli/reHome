@@ -353,7 +353,8 @@ struct PublishScreen: View {
             }
             .background(Theme.bg)
 
-            pubContinue(enabled: !category.isEmpty && condition != nil && !ageOption.isEmpty) {
+            pubNavBar(enabled: !category.isEmpty && condition != nil && !ageOption.isEmpty,
+                      back: { withAnimation { step = 1 } }) {
                 withAnimation { step = 3 }
             }
         }
@@ -596,7 +597,10 @@ struct PublishScreen: View {
             }
             .background(Theme.bg)
 
-            pubContinue(enabled: !pickupWindow.isEmpty) { withAnimation { step = 4 } }
+            pubNavBar(enabled: !pickupWindow.isEmpty,
+                      back: { withAnimation { step = 2 } }) {
+                withAnimation { step = 4 }
+            }
         }
     }
 
@@ -697,33 +701,47 @@ struct PublishScreen: View {
             }
             .background(Theme.bg)
 
-            VStack(spacing: 6) {
+            VStack(spacing: 8) {
+                HStack(spacing: 10) {
+                    Button { withAnimation { step = 3 } } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(Theme.text)
+                            .frame(width: 52, height: 52)
+                            .background(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.surface)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    .strokeBorder(Theme.border, lineWidth: 0.75)
+                            )
+                    }
+                    Button {
+                        Task { await postListing() }
+                    } label: {
+                        HStack(spacing: 8) {
+                            if isPosting { ProgressView().tint(Theme.accentInk) }
+                            Text(isPosting ? "Publishing…" : "Publish · free for everyone")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.accentInk)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 52)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent)
+                        )
+                        .opacity(isPosting ? 0.7 : 1)
+                    }
+                    .disabled(isPosting)
+                }
                 if let postError {
                     Text(postError)
                         .font(.system(size: 12))
                         .foregroundStyle(Theme.accent)
                         .multilineTextAlignment(.center)
-                        .padding(.horizontal, 20)
                 }
-                Button {
-                    Task { await postListing() }
-                } label: {
-                    HStack(spacing: 8) {
-                        if isPosting { ProgressView().tint(Theme.accentInk) }
-                        Text(isPosting ? "Publishing…" : "Publish · free for everyone")
-                            .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Theme.accentInk)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 54)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.accent)
-                    )
-                    .opacity(isPosting ? 0.7 : 1)
-                }
-                .disabled(isPosting)
-                .padding(.horizontal, 20)
             }
+            .padding(.horizontal, 20)
             .padding(.bottom, 30)
             .padding(.top, 12)
             .background(Theme.bg)
@@ -797,6 +815,40 @@ struct PublishScreen: View {
         .background(Theme.bg)
         .opacity(enabled ? 1 : 0.4)
         .disabled(!enabled)
+    }
+
+    private func pubNavBar(enabled: Bool, back: @escaping () -> Void, action: @escaping () -> Void) -> some View {
+        HStack(spacing: 10) {
+            Button(action: back) {
+                Image(systemName: "chevron.left")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.text)
+                    .frame(width: 52, height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.surface)
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .strokeBorder(Theme.border, lineWidth: 0.75)
+                    )
+            }
+            Button(action: action) {
+                Text("Continue")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.bg)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 52)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Theme.text)
+                    )
+            }
+            .opacity(enabled ? 1 : 0.4)
+            .disabled(!enabled)
+        }
+        .padding(.horizontal, 20)
+        .padding(.bottom, 30)
+        .padding(.top, 12)
+        .background(Theme.bg)
     }
 
     private func reviewRow(_ label: String, value: String, bold: Bool = false) -> some View {
