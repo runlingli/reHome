@@ -69,24 +69,13 @@ export async function signInWithEmail(email: string, password: string): Promise<
   return cred.user
 }
 
-/** Google sign-in (popup). Restricted to .edu Google Workspace accounts —
- *  non-.edu accounts (e.g. plain @gmail.com) are signed back out immediately
- *  with a friendly error so they can't slip into the app unverified. */
+/** Google sign-in (popup). First-time users get a profile doc with eduVerified
+ *  set from the .edu suffix — Google attests `email_verified=true` on the credential. */
 export async function signInWithGoogle(): Promise<User> {
   const cred = await signInWithPopup(auth, googleProvider)
   const user = cred.user
   const email = (user.email || '').toLowerCase()
   const isEdu = email.endsWith('.edu')
-
-  if (!isEdu) {
-    // Tear down both the Firebase session AND any cached Google grant so the
-    // next click reopens the account chooser instead of silently re-using the
-    // same gmail account.
-    await signOut(auth)
-    const err = new Error('reHome requires a university .edu email. Try signing in with your school Google account.') as Error & { code: string }
-    err.code = 'auth/non-edu-email'
-    throw err
-  }
 
   // Only write the profile if it doesn't exist (don't clobber an existing one).
   const ref = doc(db, 'users', user.uid)

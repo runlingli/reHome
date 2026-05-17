@@ -60,8 +60,7 @@ struct Listing: Identifiable, Hashable {
     let posted: String
     var status: String = "available"   // "available" | "completed"
     var imageName: String? = nil
-    var imageUrl: String? = nil           // Firestore-seeded remote photo
-    var photoAspectRatio: CGFloat = 1.0   // width ÷ height; < 1 = portrait
+    var photoAspectRatio: CGFloat = 1.0
     var handoffKind: HandoffKind = .meetIndoor
     var doorsideWindow: String = ""
 }
