@@ -1,8 +1,6 @@
 import SwiftUI
 import PhotosUI
 import FirebaseAuth
-import FirebaseFirestore
-import FirebaseStorage
 
 struct PublishScreen: View {
     var initialDraft: DraftData? = nil
@@ -16,7 +14,6 @@ struct PublishScreen: View {
     // Step 1
     @State private var photoItems: [PhotosPickerItem] = []
     @State private var loadedImages: [Image] = []
-    @State private var photoData: [Data] = []     // raw bytes for upload (kept in sync with loadedImages)
     @State private var title = ""
     @State private var descriptionText = ""
     @State private var descriptionLang = "en"
@@ -269,17 +266,13 @@ struct PublishScreen: View {
         .onChange(of: photoItems) { _, newItems in
             Task {
                 var imgs: [Image] = []
-                var data: [Data] = []
                 for item in newItems {
-                    guard let raw = try? await item.loadTransferable(type: Data.self),
-                          let ui  = UIImage(data: raw) else { continue }
-                    // Re-encode at 0.85 JPEG to cap upload size; PhotosPicker
-                    // sometimes hands back 5-10MB HEIC originals.
-                    let jpeg = ui.jpegData(compressionQuality: 0.85) ?? raw
-                    imgs.append(Image(uiImage: ui))
-                    data.append(jpeg)
+                    if let data = try? await item.loadTransferable(type: Data.self),
+                       let uiImage = UIImage(data: data) {
+                        imgs.append(Image(uiImage: uiImage))
+                    }
                 }
-                await MainActor.run { loadedImages = imgs; photoData = data }
+                await MainActor.run { loadedImages = imgs }
             }
         }
     }
@@ -757,8 +750,7 @@ struct PublishScreen: View {
         isPosting = true
         defer { isPosting = false }
         do {
-            // 1. Create the listing first to get the doc id.
-            let listingId = try await FirestoreService.shared.createListing(
+            _ = try await FirestoreService.shared.createListing(
                 title:          title,
                 category:       category,
                 condition:      condition ?? .good,
@@ -771,28 +763,9 @@ struct PublishScreen: View {
                 handoffKind:    handoffKind,
                 doorsideWindow: doorsideWindow
             )
-
-            // 2. Upload selected photos to Storage at listings/{id}/{N}.jpg.
-            //    Use the first one as the listing's primary imageUrl.
-            if !photoData.isEmpty {
-                let storage = Storage.storage().reference()
-                var firstURL: String?
-                for (idx, data) in photoData.enumerated() {
-                    let ref = storage.child("listings/\(listingId)/\(idx).jpg")
-                    let meta = StorageMetadata()
-                    meta.contentType = "image/jpeg"
-                    _ = try await ref.putDataAsync(data, metadata: meta)
-                    if idx == 0 { firstURL = try? await ref.downloadURL().absoluteString }
-                }
-                if let url = firstURL {
-                    try? await Firestore.firestore()
-                        .collection("listings").document(listingId)
-                        .updateData(["imageUrl": url])
-                }
-            }
             dismiss()
         } catch {
-            postError = AuthErrorMessage.friendly(error)
+            postError = (error as NSError).localizedDescription
         }
     }
 
